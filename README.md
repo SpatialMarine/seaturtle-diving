@@ -2,11 +2,20 @@
 Seaturtle diving analysis
 
 
+
+## Get started
+* Edit `config.R` with your computer parameters
+* Folder `/fun` contains custom functions
+* Folder `/R` contains R scripts, which are organized by processing workflow
+
+
+
 ## Processing workflow
 
 1. Porcessing tracking data (individual level)
-* 1.1. Prefiltering
-* 1.2. State-space-model (SSM)
+* 1.1. Preprocessing
+* 1.2. Filtering
+* 1.3. State-space-model (SSM)
 
 2. Processing TTDR data (individual level)
 * 2.1. QC of depth and temperature
