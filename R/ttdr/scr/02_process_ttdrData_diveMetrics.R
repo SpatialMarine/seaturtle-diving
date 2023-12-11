@@ -95,17 +95,19 @@ tdrdata <- createTDR(time = ttdr$date, depth = ttdr$depth,
                      dtime = 300,  # sampling interval (in seconds)
                      file = "ttdr.csv")  # path to the file
 
+#change this number for desired dive threshold
+customDive_threshold=7
+
 
 ## Calibrate with ZOC using filter method.
 #The method consists of recursively smoothing and filtering the input time series 
 #using moving quantiles.It uses a sequence of window widths and quantiles, and starts
 #by filtering the time series using the first window width and quantile in the specified
 #sequences 
-
 #NOTE organismID 200043 = 7m, 200045= 6m and 151935= 6m dive threshold.
 dcalib <-calibrateDepth(tdrdata,
                         wet.thr = 3610,  # (seconds) At-sea phases shorter than this threshold will be considered as trivial wet.Delete periods of wet activity that are too short to be compared with other wet periods.
-                        dive.thr = 5,    # (meters) threshold depth below which an underwater phase should be considered a dive.
+                        dive.thr = customDive_threshold,    # (meters) threshold depth below which an underwater phase should be considered a dive.
                         zoc.method ="filter",  # see Luque and Fried (2011)
                         k = c(12, 240),  # (60 and 1200 minutes) Vector of moving window width integers to be applied sequentially.
                         probs = c(0.5, 0.05),   # Vector of quantiles to extract at each step indicated by k (so it must be as long as k)
@@ -120,9 +122,12 @@ ttdr <- cbind(ttdr, depth_adj = dcalib@tdr@depth, depth_offset = ttdr$depth - dc
 # Step 3. Identify phases #
 #------------------------------------------------------------------------------#
 ################################################################################
-#identify dive and surface phases using a given threshold, here, we use 5m ##
+#specify columns for code
+ttdr<-subset(ttdr, select=c(date,depth,drange, temperature,trange,depth_adj,depth_offset))
+
+#identify dive and surface phases using a given threshold ##
 ttdr_thresh<-ttdr %>%
-  mutate(phase = case_when(depth_adj >= 5 ~ 'dive',
+  mutate(phase = case_when(depth_adj >= customDive_threshold ~ 'dive',
                            TRUE ~ 'surface'))
 
 
@@ -142,7 +147,8 @@ desc$diveno <- 1:nrow(desc)
 ttdr_numDesc<-merge(ttdr_threshLab, desc, by = 'date', all.x= TRUE)
 
 #remove empty duplicate rows from y(labelled descent) dataframe from merging dataframes
-ttdr_numDesc <- ttdr_numDesc[ -c(10: 17) ]
+ttdr_numDesc <- subset(ttdr_numDesc, select=-c(depth.y,drange.y,temperature.y,trange.y,depth_adj.y,depth_offset.y,phase.y,thresh.y))
+
 
 #repeate dive numbers
 ttdr_numDescRep<-na.locf(ttdr_numDesc,na.rm = FALSE)
@@ -182,7 +188,7 @@ descent.func<-function(dataframe){
     
     pred <- aspline(t, d, xout=xout, n=2)  # prediction
     
-    pt <- which(pred$y >= 5.00)# get depths below dive threshold
+    pt <- which(pred$y >= customDive_threshold)# get depths below dive threshold
     
     td1= xout[pt[1]]  # first time where depth is > than threshold
     if (td1 == 300){
@@ -213,7 +219,7 @@ descent.func<-function(dataframe){
     ##
     pred<-as.data.frame(pred)
     
-    pred<-filter(pred,y >= 5.00)
+    pred<-filter(pred,y >= customDive_threshold)
     
     td12<-pred[1,2]
     td12<-round(td12, digits=1)
@@ -253,7 +259,7 @@ ascent.func<-function(dataframe){
     
     pred <- aspline(t, d, xout=xout, n=2)  # prediction
     
-    pt <- which(pred$y <= 5.00)# get depths below dive threshold
+    pt <- which(pred$y <= customDive_threshold)# get depths below dive threshold
     
     td1= xout[pt[1]]  # first time where depth is > than threshold
     
@@ -287,7 +293,7 @@ ascent.func<-function(dataframe){
       ##
       pred<-as.data.frame(pred)
       
-      pred<-filter(pred,y <= 5.00)
+      pred<-filter(pred,y <= customDive_threshold)
       
       td12<-pred[1,2]
       td12<-round(td12, digits=1)
@@ -310,17 +316,20 @@ ttdr_descAsc<-ascent.func(ttdr_desc)
 #merge columnds together
 data_ascDesc<-ttdr_descAsc
 
-orig<-data_ascDesc[,1:10] #original data
-data_descTime<-data_ascDesc[,11:13] #descent time (descenttim), depth and seconds (for reference)
-data_ascTime<-data_ascDesc[,14:16] #ascent time (ascenttim), depth and seconds (for reference)
+orig<-subset(data_ascDesc, select=c(date, depth.x,drange.x,temperature.x,trange.x,depth_adj.x,depth_offset.x,phase.x, thresh.x,diveno))
+
+data_descTime<-subset(data_ascDesc, select=c(desc.thresh.tim,desc.thresh.dep,descenttim))#descent time (descenttim), depth and seconds (for reference)
+
+data_ascTime<-subset(data_ascDesc, select=c(asc.thresh.tim, asc.thresh.dep, ascenttim)) #ascent time (ascenttim), depth and seconds (for reference)
 
 # rename third column as date and 2nd column as depth for descent and ascent dataframes. 6th column in original dataset is the adjusted depth from ZOC and renamed as depth
-names(data_ascTime)[3] <- 'date'
-names(data_ascTime)[2] <- 'depth'
-names(data_descTime)[3] <- 'date'
-names(data_descTime)[2] <- 'depth'
-names(orig)[6] <- 'depth' 
+colnames(data_ascTime)[colnames(data_ascTime) == "ascenttim"] ="date"
+colnames(data_ascTime)[colnames(data_ascTime) == "asc.thresh.dep"] ="depth"
 
+colnames(data_descTime)[colnames(data_descTime) == "desc.thresh.dep"] ="depth"
+colnames(data_descTime)[colnames(data_descTime) == "descenttim"] ="date"
+
+colnames(orig)[colnames(orig) == "depth_adj.x"] ="depth"
 
 #add for merge
 data_ascTime$phase.x<- paste0("dive")
@@ -337,7 +346,7 @@ dataMerge<-dataMerge %>% drop_na(date)
 #merge new data and descent
 dataMerge2<-merge(x = dataMerge, y = data_descTime, by=c("date", "depth","phase.x", "thresh.x"), all = TRUE)
 
-names(dataMerge2)[2]<-"depth_adj"
+colnames(dataMerge2)[colnames(dataMerge2) == "depth"] ="depth_adj"
 
 dataMerge2<-dataMerge2 %>% drop_na(date)
 
@@ -369,9 +378,9 @@ ascDescFilt$diveno_2 <- 1:nrow(ascDescFilt)
 
 #merge dive numbers with data
 ascDescNums<-merge(ascDescPhase2, ascDescFilt, by = 'date', all.x= TRUE)
-#colnames(ascDescNums)
+
 #remove empty duplicate columns for second dataframe. Keep diveno_2
-ascDescNums <- ascDescNums[-c(15: 27)]
+ascDescNums<-subset(ascDescNums, select=-c(depth_adj.y, phase.x.y,thresh.x.y,depth.x.y, drange.x.y,temperature.x.y,trange.x.y, depth_offset.x.y,diveno.y,asc.thresh.tim.y,desc.thresh.tim.y, new_thresh.y,new_thresh_2.y))
 
 #carry foward dive numbers
 ascDescNumsLocf<-na.locf(ascDescNums,na.rm = FALSE)
@@ -382,10 +391,9 @@ ascDescFin <- within(ascDescNumsLocf, diveno_2[new_thresh.x == 'surface'] <- NA)
 #new dataframe using date, adjusted depth, new_threshold and dive number
 ascDescFin_short<-subset(ascDescFin, select = c(date,depth_adj.x,new_thresh.x,diveno_2))
 
-#rename columns
-names(ascDescFin_short)[2] <- 'depth'
-names(ascDescFin_short)[3] <- 'phase'
-names(ascDescFin_short)[4] <- 'diveno'
+colnames(ascDescFin_short)[colnames(ascDescFin_short) == "depth_adj.x"] ="depth"
+colnames(ascDescFin_short)[colnames(ascDescFin_short) == "new_thresh.x"] ="phase"
+colnames(ascDescFin_short)[colnames(ascDescFin_short) == "diveno_2"] ="diveno"
 
 #remove any duplicated rows#
 ascDescFin_short<-ascDescFin_short[!duplicated(ascDescFin_short), ]
@@ -588,7 +596,7 @@ split.dive<-function(dataframe){
       distance_poss1<-s1*150
       distance_poss2<-s2*150
       
-      distneeded<- -5-depthpoint
+      distneeded<- -customDive_threshold-depthpoint
       
       if(distance_poss1>=distneeded || distance_poss2>=distneeded ){
         fill[a] = j[a,]
@@ -630,7 +638,7 @@ split.dive<-function(dataframe){
         de1[i] = depth 
         
         #ab.thresh#
-        pt2<- which(pred$y >= 5.00)
+        pt2<- which(pred$y >= customDive_threshold)
         pt2<-rev(pt2)
         td1.1= xout[pt2[1]] 
         pt2d<-pt2[1]
@@ -649,7 +657,7 @@ split.dive<-function(dataframe){
         xout2 <- seq(tda, tdb,by="2 sec") #was 10 secs but changed becasue duplicate confusion
         xout2 <- as.numeric(xout2-tda)
         pred2 <- aspline(ta, da, xout=xout2, n=2)  # prediction
-        pta <- which(pred2$y >= 5.00)# get depths below dive threshold
+        pta <- which(pred2$y >= customDive_threshold)# get depths below dive threshold
         pta<-rev(pta)
         td1a= xout[pta[1]] 
         pt1da<-pta[1]
@@ -754,7 +762,7 @@ phases<-function(dataframe){
   
   #assign phase (dive/surface) for threshold value
   dataframe1<-dataframe %>%
-    mutate(phase = case_when(round(depth) >= 5 ~ 'dive',
+    mutate(phase = case_when(round(depth) >= customDive_threshold ~ 'dive',
                              TRUE ~ 'surface'))
   
   #add phase of dives (surface etc.)
@@ -1007,7 +1015,7 @@ else {
 #if transmission stops during the last dive then remove 'incomplete' dive
 last.dive.name<-tail(names, n=1)
 last.dive<-eval(parse(text = paste0(last.dive.name)))
-if(tail(last.dive$depth,n=1)>=5){
+if(tail(last.dive$depth,n=1)>=customDive_threshold){
  names<-names[1:length(names)-1]
 }else{
   names<-names
@@ -1104,7 +1112,7 @@ split.hangouts<- function(dataframe){
         distance_poss1<-s1*150
         distance_poss2<-s2*150
         
-        distneeded<- -5-depthpoint
+        distneeded<- -customDive_threshold-depthpoint
         
         if(distance_poss1>=distneeded || distance_poss2>=distneeded ){
           fill[a] = t[a]
@@ -1158,7 +1166,7 @@ split.hangouts<- function(dataframe){
           de[rwz[i]] = depth 
           
           #ab.thresh#
-          pt2<- which(pred$y >= 5.00)
+          pt2<- which(pred$y >= customDive_threshold)
           pt2<-rev(pt2)
           td1.1= xout[pt2[1]] 
           pt2d<-pt2[1]
@@ -1179,7 +1187,7 @@ split.hangouts<- function(dataframe){
           xout2 <- seq(tda, tdb,by="2 sec") #was 10 secs but changed becasue duplicate confusion
           xout2 <- as.numeric(xout2-tda)
           pred2 <- aspline(ta, da, xout=xout2, n=2)  # prediction
-          pta <- which(pred2$y >= 5.00)# get depths below dive threshold
+          pta <- which(pred2$y >= customDive_threshold)# get depths below dive threshold
           pta<-rev(pta)
           td1a= xout[pta[1]] 
           pt1da<-pta[1]
@@ -1283,7 +1291,9 @@ proc_data$date <- as.POSIXct(proc_data$date,format="%Y-%m-%d %H:%M:%S",tz="CET")
 proc_data<-proc_data[order(proc_data$date),]
 
 #leave datetime and depth
-proc_data <- proc_data[ -c(1) ]
+#proc_data <- proc_data[ -c(1) ]
+
+proc_data<-subset(proc_data, select = c(date,depth))
 
 #reprocess
 #rounded 5 in phases function
@@ -1329,7 +1339,7 @@ for (i in 1:length(data_sep)) {        # Run for-loop
 
 last.dive.name<-tail(names, n=1)
 last.dive<-eval(parse(text = paste0(last.dive.name)))
-if(tail(last.dive$depth,n=1)>=5){
+if(tail(last.dive$depth,n=1)>=customDive_threshold){
   names<-names[1:length(names)-1]
 }
 
@@ -1499,7 +1509,7 @@ dive_summary<-function(dataframe){
   nr<- nrow(dataframe)
   maxround<-round(maximumDepth, digits=1) #can get rid of for entire dive cp
   
-  if (nr>2 & maxround>5){
+  if (nr>2 & maxround>customDive_threshold){
     nodesc<- dataframe[dataframe$ph3 != "descent", ]  # #can get rid of for entire dive cp
     
     tot_cp = cpt.mean((nodesc$spd*100), method="PELT") #mean changepoints using PELT
@@ -1508,7 +1518,7 @@ dive_summary<-function(dataframe){
     totalChangepoints=0
   }
   #flag dives where rounded max depth =5
-  if(maxround<=5){
+  if(maxround<=customDive_threshold){
     exclude="Y"
   } else{
     exclude="N"
