@@ -1,5 +1,28 @@
 #Clean code to process low resolution dives (based on D. March turtle dataset). Jessica Harvey-Carroll (carrolljessh@gmail.com/ jessica.carroll@bioenv.gu.se). 2023#
 
+# TTDR processing includes the following steps:
+# 1. Data standardization
+# 2. Zero offset correction. 
+# 3. Identfication of ascent and descent phases
+# 4. Predict times turtle crossed given threshold based on trajectory
+# 5. Relabel dive phases 
+# 6.  Prepare data for manipulation 
+# 7. Remove dives if NA's fall within dive intervals
+# 8. Remove dives if gap in transmission 
+# 9. Split dives if turtle can cross 5m threshold based on ascent speed
+#10. Relabel new processed data
+#11. if transmission stops during the last dive then remove
+#12. Split 'hangouts' if possible for turtle the reach surface and return to next reading
+#13. Relabel all data
+#14. Compile final dives
+#15. Extract dive summaries
+#16. Load and bind all files together for HMM input
+
+################################################################################
+#------------------------------------------------------------------------------#
+# Step 0. Preliminaries- clear list, load packages and set file paths #
+#------------------------------------------------------------------------------#
+################################################################################
 rm(list=ls())
 require(dplyr)
 require(lubridate)
@@ -12,23 +35,31 @@ library(beepr)
 library(pracma)
 library(changepoint)
 library(tidyr)
-
 setwd("C:/Users/user/Desktop/tort")
 
+output_data <- paste0("C:/Users/user/Desktop/tort/output/")
+input_data <- paste0("C:/Users/user/Desktop/tort/input/tracking/CAR/wc/")
+metadata <- read.csv(paste0(input_data, "TODB_2023-12-09_diveAnalysis.csv"))
+
+for (i in 1:nrow(metadata)){
+################################################################################
+#------------------------------------------------------------------------------#
+# Step 1. Process meta-data #
+#------------------------------------------------------------------------------#
+################################################################################
+organismID <- metadata$ptt[i]
+
+print(paste("Processing", organismID))
+input_ttdrData <- paste0("C:/Users/user/Desktop/tort/input/tracking/CAR/wc/",organismID,"/",organismID, "-Series.csv" )
+
+data <- read.csv(input_ttdrData)
 # TTDR data, WCT 5 minute bins so:
 tfreq <- 5 * 60  # time interval from TTDR data, in seconds
-data<- read.csv("C:/Users/user/Desktop/tort/input/tracking/CAR/wc/DONE/181762/181762-Series.csv")
 
-#meta data
-
-meta<-read.csv("TODB_2022-07-23.csv")
-
-organismID<- meta %>%filter (ptt== "181762")
-
-depl <- parse_date_time(organismID$deploymentDateTime, c("dmY"), tz="UTC")
+depl <- parse_date_time(metadata$deploymentDateTime[i], c("dmY"), tz="UTC")
 
 ###for turtle 200043 input is different
-# depl <- parse_date_time(format(as.POSIXct(organismID$deploymentDateTime,format='%d/%m/%Y %H:%M'),format='%d/%m/%Y'), c("dmY"), tz="UTC")
+ # depl <- parse_date_time(format(as.POSIXct(organismID$deploymentDateTime,format='%d/%m/%Y %H:%M'),format='%d/%m/%Y'), c("dmY"), tz="UTC")
 
 #-------------------------------------------------------------------------------
 # wc2ttdr  Processes Wildlife Computers Time-Series csv files
@@ -96,15 +127,13 @@ tdrdata <- createTDR(time = ttdr$date, depth = ttdr$depth,
                      file = "ttdr.csv")  # path to the file
 
 #change this number for desired dive threshold
-customDive_threshold=7
+customDive_threshold=8.00
 
 
 ## Calibrate with ZOC using filter method.
 #The method consists of recursively smoothing and filtering the input time series 
 #using moving quantiles.It uses a sequence of window widths and quantiles, and starts
-#by filtering the time series using the first window width and quantile in the specified
-#sequences 
-#NOTE organismID 200043 = 7m, 200045= 6m and 151935= 6m dive threshold.
+#by filtering the time series using the first window width and quantile in the specified sequences
 dcalib <-calibrateDepth(tdrdata,
                         wet.thr = 3610,  # (seconds) At-sea phases shorter than this threshold will be considered as trivial wet.Delete periods of wet activity that are too short to be compared with other wet periods.
                         dive.thr = customDive_threshold,    # (meters) threshold depth below which an underwater phase should be considered a dive.
@@ -169,7 +198,7 @@ ttdr_clean <- within(ttdr_numDescRep, diveno[thresh.x == 'surface'] <- NA)
 #-------------------------------------------------------------------------------
 descent.func<-function(dataframe){
   
-  rwz = which(dataframe[,9] == "descent")
+  rwz = which(dataframe$thresh.x == "descent")
   desc.thresh.tim = rep(NA, nrow(dataframe))
   desc.thresh.dep = rep(NA, nrow(dataframe))
   
@@ -240,7 +269,7 @@ descent.func<-function(dataframe){
 #-------------------------------------------------------------------------------
 ascent.func<-function(dataframe){
   
-  rwz = which(dataframe[,9] == "ascent")
+  rwz = which(dataframe$thresh.x == "ascent")
   asc.thresh.tim = rep(NA, nrow(dataframe))
   asc.thresh.dep = rep(NA, nrow(dataframe))
   
@@ -400,15 +429,16 @@ ascDescFin_short<-ascDescFin_short[!duplicated(ascDescFin_short), ]
 ascDescFin_short
 
 #write CSV of preprocessed data!!
-write.csv(ascDescFin_short, "C:/Users/user/Desktop/tort/test/preprocessed_dives_181762.csv")
-
+#write.csv(ascDescFin_short, "C:/Users/user/Desktop/tort/finalrun_7mthresh/preprocessed_dives_151935.csv")
+ascDescFin_short_file <- paste0(output_data, "preprocessed_dives_", organismID, ".csv")
+write.csv(ascDescFin_short, ascDescFin_short_file)
 
 ################################################################################
 #------------------------------------------------------------------------------#
 # Step 6. Prepare data for manipulation #
 #------------------------------------------------------------------------------#
 ################################################################################
-ascDescFin_short<- read.csv("C:/Users/user/Desktop/tort/test/preprocessed_dives_181762.csv")
+ascDescFin_short<- read.csv(ascDescFin_short_file)
 
 ##grep to add 00's to midnight
 ascDescFin_short$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",ascDescFin_short$date)] <- paste(
@@ -704,7 +734,7 @@ split.dive<-function(dataframe){
 #screen all dives, apply when necessary
 for(i in  1:length(names)){
   data =  eval(parse(text = paste0(names[i])))
-  print(data)
+ # print(data)
   m<-split.dive(data)
   w<-is.null(m)
   if (w== FALSE){
@@ -730,7 +760,9 @@ diveSurfBind_ord<-diveSurfBind[order(diveSurfBind$date),]
 
 diveSurfBind_ord<-diveSurfBind_ord[!duplicated(diveSurfBind_ord), ]
 
-write.csv(diveSurfBind_ord, "C:/Users/user/Desktop/tort/test/split_dive_181762.csv")
+diveSurfBind_ord_file <- paste0(output_data, "split_dive_", organismID, ".csv")
+write.csv(diveSurfBind_ord, diveSurfBind_ord_file)
+
 
 ################################################################################
 #------------------------------------------------------------------------------#
@@ -738,7 +770,7 @@ write.csv(diveSurfBind_ord, "C:/Users/user/Desktop/tort/test/split_dive_181762.c
 #------------------------------------------------------------------------------#
 ################################################################################
 
-diveSurfBind_ord<- read.csv("C:/Users/user/Desktop/tort/test/split_dive_181762.csv")
+diveSurfBind_ord<- read.csv(diveSurfBind_ord_file)
 
 ##grep to add 00's to midnight
 diveSurfBind_ord$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",diveSurfBind_ord$date)] <- paste(
@@ -747,7 +779,7 @@ diveSurfBind_ord$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",diveSurfBind_ord$date)]
 diveSurfBind_ord$date <- as.POSIXct(diveSurfBind_ord$date,format="%Y-%m-%d %H:%M:%S",tz="CET") ## Your dates need to be in 
 
 diveSurfBind_ord<- diveSurfBind_ord %>% drop_na(date)
-colnames(diveSurfBind_ord)
+#colnames(diveSurfBind_ord)
 
 diveSurfBind_ord<-subset(diveSurfBind_ord, select = c(date,depth))
 
@@ -1274,14 +1306,15 @@ final_dives<-diveSurfBind2.1[!duplicated(diveSurfBind2.1), ]
  final_dives<-diveSurfBind2.1[!duplicated(diveSurfBind2.1), ]
 }
   
-write.csv(final_dives, "C:/Users/user/Desktop/tort/test/final_forprocess_181762.csv")
+final_dives_file <- paste0(output_data, "final_forprocess_", organismID, ".csv")
+write.csv(final_dives, final_dives_file)
 ################################################################################
 #------------------------------------------------------------------------------#
 # Step 13. Relabel all data#
 #------------------------------------------------------------------------------#
 ################################################################################
 
-proc_data<- read.csv("C:/Users/user/Desktop/tort/test/final_forprocess_181762.csv")
+proc_data<- read.csv(final_dives_file)
 
 ##grep to add 00's to midnight
 proc_data$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",proc_data$date)] <- paste(
@@ -1322,7 +1355,6 @@ direc<-direc[!duplicated(direc), ]
 #split dives by number
 data_sep<-split(direc, direc$diveno)
 
-
 #find total number of dives
 lastDive<-tail((names(data_sep)), n=1)
 divNum<-as.numeric(lastDive[1])
@@ -1357,7 +1389,10 @@ dive_list = mget(ls(pattern = "_phase"))
 dives_complete = do.call(what = rbind, args = dive_list)
 dives_complete<-dives_complete[order(dives_complete$date),]
 
-write.csv(dives_complete, "C:/Users/user/Desktop/tort/test/processed_dives_181762.csv")
+dives_complete$organismID<-organismID
+
+dives_complete_file <- paste0(output_data, "processed_dives_", organismID, ".csv")
+write.csv(dives_complete, dives_complete_file)
 ################################################################################
 ###----------------------------------------------------------------------------#
 ### Step 15. Extract dive summaries #
@@ -1663,9 +1698,12 @@ dive_summaries<-dive_summaries[order(dive_summaries$diveStartTime),]
 
 dive_summaries$diveID <- c(1:nrow(dive_summaries))
 
+dive_summaries$first48Hrs<- ifelse(as.Date(dive_summaries$diveStartTime) <= (as.Date(depl)+days(1)),
+                    "flag", "NA")
+
 #replace id with turtleID
-dive_summaries$organismID<-181762
-dive_summaries$concatID<-paste0("181762","_",dive_summaries$diveID)
+dive_summaries$organismID<-organismID
+dive_summaries$concatID<-paste0(organismID,"_",dive_summaries$diveID)
 
 #-------------------------------------------------------------------------------
 # surf.time # function to calculate surface period following a dive
@@ -1688,8 +1726,31 @@ surf.time<-function(dataframe){
 dive_summaries<-surf.time(dive_summaries)
 colnames(dive_summaries)[colnames(dive_summaries) == "tim3"] ="surface_int"
 
-write.csv(dive_summaries, "C:/Users/user/Desktop/tort/test/dive_summarys_181762.csv")
-head(dive_summaries)
-beep()
 
+dive_summaries_file <- paste0(output_data, "dive_summarys_", organismID, ".csv")
+write.csv(dive_summaries, dive_summaries_file)
+
+head(dive_summaries)
+#clean environment from previous loop iteration
+rm(list=setdiff(ls(), c("output_data","input_data","metadata", "i")))
+}
+################################## Finish loops#################################
+beep()
+################################################################################
+###----------------------------------------------------------------------------#
+### Step 16.  Load and bind all files together for HMM input #
+###----------------------------------------------------------------------------#
+################################################################################
+files<-list.files(path=output_data, pattern="dive_summarys_")
+tables <- lapply(paste0(output_data,files), read.csv, header = TRUE)
+combined.df <- do.call(rbind , tables)
+all_diveSummaries_file <- paste0(output_data, "allDiveSummaries", ".csv")
+write.csv(combined.df, all_diveSummaries_file)
+
+#also bind raw processed depths for visualisation
+files<-list.files(path=output_data, pattern="processed_dives_")
+tables <- lapply(paste0(output_data,files), read.csv, header = TRUE)
+combined.df <- do.call(rbind , tables)
+all_diveDepths_file <- paste0(output_data, "allDiveDepths", ".csv")
+write.csv(combined.df, all_diveDepths_file)
 ################################## Finish!######################################
