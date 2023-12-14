@@ -8,8 +8,9 @@ source("config.R")
 # Load required packages
 pacman::p_load("data.table", "tidyr", "dplyr", "lubridate", "stringr", "readxl", "tools",# data manipulation
                "ggplot2", "egg", "pals", "ggpubr", # plots
-               "diveMove", # diving
+               "diveMove", "foieGras", # diving and movement
                "rnaturalearthdata", "rnaturalearth",  # base data
+               "foreach", "doParallel",  # parallel computing
                "raster", "sf", "animalsensor", "move", "argosfilter", "geosphere")  # spatial
 
 # Create data paths

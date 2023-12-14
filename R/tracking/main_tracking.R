@@ -32,7 +32,6 @@ filt_land <- FALSE  # remove locations on land
 # Params by species
 seaturtle_filt_vmax <- 2  # value of the maximum of velocity, in m/s
 
-
 ### Track regularization
 reg_time_step <- 2  # time step to interpolate positions, in hours
 
@@ -67,4 +66,4 @@ source("R/tracking/scr/02_filter_locs.R")
 #-----------------------------------------------
 # SSM for Argos tags
 cores <- 10
-source("analysis/tracking/scr/03_ssm.R")
+source("R/tracking/scr/03_ssm.R")

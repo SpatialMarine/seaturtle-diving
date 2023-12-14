@@ -46,7 +46,7 @@ foreach(i=1:nrow(organism_meta), .packages=c("dplyr", "ggplot2", "foieGras", "st
   cname <- organism_meta$codeName[i]
   
   # import L1 location data
-  input_data <- paste0(output_dir, "/tracking/locdata/", cname, "/L1_loc/")
+  input_data <- paste0(output_dir, "/tracking/locdata/L1_loc/")
   infile <- sprintf(paste0(input_data, "%s_L1_loc.csv"), indiv)
   data <- read.csv(infile)
   data$time <- parse_date_time(data$time, "Ymd HMS") # parse time
@@ -115,7 +115,7 @@ foreach(i=1:nrow(organism_meta), .packages=c("dplyr", "ggplot2", "foieGras", "st
     dplyr::select(organismID, everything())
   
   # write level 2 results
-  output_data <- paste0(output_dir, "/tracking/locdata/", cname, "/L2_loc/")
+  output_data <- paste0(output_dir, "/tracking/locdata/L2_loc/")
   if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
   outfile <- sprintf(paste0(output_data, "%s_L2_loc.csv"), indiv)
   write.csv(data, outfile, row.names = F)
