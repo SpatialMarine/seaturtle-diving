@@ -1749,6 +1749,7 @@ write.csv(combined.df, all_diveSummaries_file)
 
 #also bind raw processed depths for visualisation
 files<-list.files(path=output_data, pattern="processed_dives_")
+files<-grep(files, pattern='pre', invert=TRUE, value=TRUE)
 tables <- lapply(paste0(output_data,files), read.csv, header = TRUE)
 combined.df <- do.call(rbind , tables)
 all_diveDepths_file <- paste0(output_data, "allDiveDepths", ".csv")
