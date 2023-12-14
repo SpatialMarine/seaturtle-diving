@@ -21,7 +21,7 @@
 #---------------------------------------------------------------
 # 1. Set data repository
 #---------------------------------------------------------------
-location_data <-  paste0(output_dir, "/tracking/locdata/L1_loc")
+location_data <-  paste0(output_dir, "/tracking/locdata/L2_loc")
 output_data <- paste0(output_dir, "/ttdr")
 if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
 
@@ -33,7 +33,7 @@ if (!dir.exists(output_data)) dir.create(output_data, recursive = TRUE)
 #---------------------------------------------------------------
 
 # import metadata
-metadata <- read.csv(paste0(output_dir, "/tracking/metadata/metadataL1.csv"))
+metadata <- read.csv(paste0(output_dir, "/tracking/metadata/metadataL2.csv"))
 
 
 
@@ -50,7 +50,7 @@ metadata <- read.csv(paste0(output_dir, "/tracking/metadata/metadataL1.csv"))
 for (i in 1:nrow(metadata)){
 #foreach(i=1:nrow(db), .packages=c("dplyr", "stringr", "lubridate", "diveMove", "move", "foieGras")) %dopar% {
   
-  print(paste("Processing tag", i, "of", nrow(db)))
+  print(paste("Processing tag", i, "of", nrow(metadata)))
   
   ## get tag information
   id <- metadata$organismID[i]
@@ -187,7 +187,7 @@ for (i in 1:nrow(metadata)){
   #-------------------------------
   # Step 7. Add locations
   #-------------------------------
-  loc_file <- paste0(location_data, "/", id, "_L1_loc.csv")
+  loc_file <- paste0(location_data, "/", id, "_L2_loc.csv")
   loc_filt <- read.csv(loc_file)
   loc_filt$time <- parse_date_time(loc_filt$time, "Ymd HMS") # parse time
   
@@ -215,8 +215,8 @@ for (i in 1:nrow(metadata)){
   ttdr$longitude <- lint@coords[,1]
   ttdr$latitude <- lint@coords[,2]
   
-  # Interpolate horizontal error to TTDR data
-  #ttdr$xy_error <- akima::aspline(x=(as.numeric(loc_filt$date)), y=(loc_filt$xy_error), xout=(as.numeric(ttdr$date)))$y
+  # Interpolate movement persistence metric to TTDR data
+  ttdr$mpm <- akima::aspline(x=(as.numeric(loc_filt$time)), y=(loc_filt$g), xout=(as.numeric(ttdr$time)))$y
   
   
   #-------------------------------
