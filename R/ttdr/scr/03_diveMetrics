@@ -1,0 +1,167 @@
+#Script to process low resolution dives Part 2. (based on D. March turtle dataset). Jessica Harvey-Carroll (carrolljessh@gmail.com/ jessica.carroll@bioenv.gu.se). 2023#
+
+# Retrieving dive summaries and subsetting dives of low resolution consists of the following steps:
+
+#1. Relabel all data (from previous script)
+#2. Compile final dives
+#3. Extract dive summaries
+#4. Load and bind all files together for HMM input
+
+for (i in 1:nrow(metadata)){
+organismID <- metadata$ptt[i]
+################################################################################
+#------------------------------------------------------------------------------#
+# Step 1. Relabel all data#
+#------------------------------------------------------------------------------#
+################################################################################
+proc_data<- read.csv(paste0(output_data, "final_forprocess_", organismID, ".csv"))
+
+##grep to add 00's to midnight
+proc_data$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",proc_data$date)] <- paste(
+  proc_data$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",proc_data$date)],"00:00:00")
+
+proc_data$date <- as.POSIXct(proc_data$date,format="%Y-%m-%d %H:%M:%S",tz="CET") ## Your dates need to be in 
+proc_data<-proc_data[order(proc_data$date),]
+
+#leave datetime and depth
+#proc_data <- proc_data[ -c(1) ]
+
+proc_data<-subset(proc_data, select = c(date,depth))
+
+#reprocess
+#rounded 5 in phases function
+proc_dataPhase<-phases(proc_data)
+
+#add in depth, time and speed diff from previous value
+
+proc_dataPhase<-depth.diff(proc_dataPhase)
+proc_dataPhase<-time.diff(proc_dataPhase)  
+proc_dataPhase<-speed(proc_dataPhase)
+
+#identify and label changes in direction, negative = decrease in depth
+direc<-proc_dataPhase %>%
+  mutate(direction = case_when(diff > 0 ~ 'positive',
+                               diff < 0 ~ 'negative',
+                               diff == 0 ~ 'no change',
+                               TRUE ~ ''))
+#remove duplicates
+direc<-direc[!duplicated(direc), ]
+
+################################################################################
+#==============================================================================#
+# Step 2. Compile final dives###
+#==============================================================================#
+################################################################################
+#split dives by number
+data_sep<-split(direc, direc$diveno)
+
+#find total number of dives
+lastDive<-tail((names(data_sep)), n=1)
+divNum<-as.numeric(lastDive[1])
+
+#print names of all dives
+names<-sprintf("dive%d", 1:divNum) 
+
+split_names <- as.character(names)
+
+#make each dive a seperate dataframe
+for (i in 1:length(data_sep)) {        # Run for-loop
+  assign(split_names[i], data_sep[[i]])
+}
+
+last.dive.name<-tail(names, n=1)
+last.dive<-eval(parse(text = paste0(last.dive.name)))
+if(tail(last.dive$depth,n=1)>=customDive_threshold){
+  names<-names[1:length(names)-1]
+}
+
+#for loop for each dive and get summary statistic
+#did have phase lab function here, but already run previously
+#apply to all dives
+for(i in  1:length(names)){
+  data =  eval(parse(text = paste0( names[i])))
+  assign(paste(names[i],"phase",sep = "_"), t<-dive.phaselab(data))
+  print(paste(names[i],"phase",sep = "_"))
+}
+
+##new data frame with all dives
+dive_list = mget(ls(pattern = "_phase"))
+dives_complete = do.call(what = rbind, args = dive_list)
+dives_complete<-dives_complete[order(dives_complete$date),]
+
+dives_complete$organismID<-organismID
+
+dives_complete_file <- paste0(output_data, "processed_dives_", organismID, ".csv")
+write.csv(dives_complete, dives_complete_file)
+################################################################################
+###----------------------------------------------------------------------------#
+### Step 3. Extract dive summaries #
+###----------------------------------------------------------------------------#
+################################################################################
+#dive_summary function to extract dive summaries from individual dives
+
+final<- paste(names, "phase", sep = "_")
+
+#apply to all dives
+
+for(i in  1:length(final)){
+  data =  eval(parse(text = paste0( final[i])))
+  assign(paste(final[i],"final",sep = "_"), t<-dive_summary(data))
+  print(paste(final[i],"final",sep = "_"))
+}
+final2<- paste(final, "final", sep = "_")
+
+fin_list = mget(ls(pattern = "_phase_final"))
+dive_summaries = do.call(what = rbind, args = fin_list)
+dive_summaries<-dive_summaries[order(dive_summaries$diveStartTime),]
+
+
+dive_summaries$diveID <- c(1:nrow(dive_summaries))
+
+dive_summaries$first48Hrs<- ifelse(as.Date(dive_summaries$diveStartTime) <= (as.Date(depl)+days(1)),
+                                   "flag", "NA")
+
+#replace id with turtleID
+dive_summaries$organismID<-organismID
+dive_summaries$concatID<-paste0(organismID,"_",dive_summaries$diveID)
+
+#surf.time  function to calculate surface period following a dive
+dive_summaries<-surf.time(dive_summaries)
+colnames(dive_summaries)[colnames(dive_summaries) == "tim3"] ="surface_int"
+
+
+dive_summaries_file <- paste0(output_data, "dive_summarys_", organismID, ".csv")
+write.csv(dive_summaries, dive_summaries_file)
+
+head(dive_summaries)
+#clean environment from previous loop iteration
+rm(list=setdiff(ls(), c("output_data","input_data","metadata", "i")))
+
+}
+
+################################################################################
+###----------------------------------------------------------------------------#
+### Step 4.  Load and bind all files together for HMM input #
+###----------------------------------------------------------------------------#
+################################################################################
+files<-list.files(path=output_data, pattern="dive_summarys_")
+tables <- lapply(paste0(output_data,files), read.csv, header = TRUE)
+combined.df <- do.call(rbind , tables)
+all_diveSummaries_file <- paste0(output_data, "allDiveSummaries", ".csv")
+write.csv(combined.df, all_diveSummaries_file)
+
+
+combined.df_short<-combined.df[,c(2,3,4,5,6,7,8,13,17,18,33,35,7,34,46,47,48,49,50)]
+colnames(combined.df_short)
+
+all_diveSummaries_file_short <- paste0(output_data, "allDiveSummaries_short", ".csv")
+write.csv(combined.df_short, all_diveSummaries_file_short)
+
+#also bind raw processed depths for visualisation
+files<-list.files(path=output_data, pattern="processed_dives_")
+files<-grep(files, pattern='pre', invert=TRUE, value=TRUE)
+tables <- lapply(paste0(output_data,files), read.csv, header = TRUE)
+combined.df <- do.call(rbind , tables)
+all_diveDepths_file <- paste0(output_data, "allDiveDepths", ".csv")
+write.csv(combined.df, all_diveDepths_file)
+################################## Finish!######################################
