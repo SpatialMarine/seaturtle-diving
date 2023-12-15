@@ -1,20 +1,9 @@
-#functions to process 1 second data and 5 mins subsampled data
 
-# #use 1 second for 1 second data
-# xout_timeSamp<-"1 sec"
-# #frequency of time samples in secs (1)
-# td1_timeSamp<- 1
-# half_timeSamp<-td1_timeSamp/2
-
-# use 10 second for 5 min data
-# xout_timeSamp<-"10 sec"
-# #frequency of time samples in secs (300)
-# td1_timeSamp<- 300
-# half_timeSamp<-td1_timeSamp/2
 
 #-------------------------------------------------------------------------------
 #descent.func # calculate the point turtles pass descent thresholds for each dive. Add in artificial times. If predicted time same as next time then omit
 #-------------------------------------------------------------------------------
+#changed here from 10 sec to 1 sec in interpol. also if (td1 == 300) to 1
 descent.func<-function(dataframe){
   
   rwz = which(dataframe$thresh.x == "descent")
@@ -30,7 +19,7 @@ descent.func<-function(dataframe){
     d <- fdata$depth_adj.x#depths
     t <- fdata$date #time (in seconds)
     
-    xout <- seq(t1,t2,by=xout_timeSamp)
+    xout <- seq(t1,t2,by="1 sec")
     t <- as.numeric(t-t1)
     xout <- as.numeric(xout-t1)
     
@@ -39,7 +28,7 @@ descent.func<-function(dataframe){
     pt <- which(pred$y >= customDive_threshold)# get depths below dive threshold
     
     td1= xout[pt[1]]  # first time where depth is > than threshold
-    if (td1==td1_timeSamp){
+    if (td1 == 1){
       ptmin=pt-1
       td1= xout[ptmin[1]] 
     }else{
@@ -58,7 +47,7 @@ descent.func<-function(dataframe){
     d <- fdata$depth_adj.x#depths
     t <- fdata$date #time (in seconds)
     
-    xout <- seq(t1,t2,by=xout_timeSamp)
+    xout <- seq(t1,t2,by="1 sec")
     t <- as.numeric(t-t1)
     xout <- as.numeric(xout-t1)
     
@@ -101,7 +90,7 @@ ascent.func<-function(dataframe){
     d <- fdata$depth_adj.x#depths
     t <- fdata$date #time (in seconds)
     
-    xout <- seq(t1,t2,by=xout_timeSamp)
+    xout <- seq(t1,t2,by="1 sec")
     t <- as.numeric(t-t1)
     xout <- as.numeric(xout-t1)
     
@@ -111,7 +100,7 @@ ascent.func<-function(dataframe){
     
     td1= xout[pt[1]]  # first time where depth is > than threshold
     
-    if (td1==td1_timeSamp){
+    if (td1 == 1){
       ptmin=pt-1
       td1= xout[ptmin[1]] 
     }else{
@@ -132,7 +121,7 @@ ascent.func<-function(dataframe){
     d <- fdata$depth_adj.x#depths
     t <- fdata$date #time (in seconds)
     
-    xout <- seq(t1,t2,by=xout_timeSamp)
+    xout <- seq(t1,t2,by="10 sec")
     t <- as.numeric(t-t1)
     xout <- as.numeric(xout-t1)
     
@@ -155,7 +144,6 @@ ascent.func<-function(dataframe){
   return(dataframenew)
   
 }
-
 #-------------------------------------------------------------------------------
 # newint # function to get start and fin time of each dive
 #-------------------------------------------------------------------------------
@@ -170,10 +158,10 @@ newint<-function(dataframe){
   names(newdf)[1] = "diveno"
   return(newdf)
 }
-
 #-------------------------------------------------------------------------------
 #split.dive # function to split dive if peaks detected and possible for turtle to surface based on trajectory
 #-------------------------------------------------------------------------------
+#here changed 150 to 0.5
 split.dive<-function(dataframe){
   
   
@@ -210,8 +198,8 @@ split.dive<-function(dataframe){
       s2<-d2/t2
       
       #could turtle cross threshold based on speed before/after peak
-      distance_poss1<-s1*half_timeSamp
-      distance_poss2<-s2*half_timeSamp
+      distance_poss1<-s1*0.5
+      distance_poss2<-s2*0.5
       
       distneeded<- -customDive_threshold-depthpoint
       
@@ -236,9 +224,9 @@ split.dive<-function(dataframe){
       
       for (i in 1:length(rwz)){
         t1<- dataframe[rwz[i],2]
-        t2 <- t1+half_timeSamp 
+        t2 <- t1+0.5 
         t<-as.numeric(t1-t1)
-        t<-c(t,half_timeSamp)
+        t<-c(t,0.5)
         d<-c(dataframe[rwz[i],3], 0)
         xout <- seq(t1,t2,by="2 sec") #was 5 secs but values 5.9 so changed for + precision. Was originally was 10 secs but changed becasue duplicate confusion
         xout <- as.numeric(xout-t1)
@@ -269,7 +257,7 @@ split.dive<-function(dataframe){
         tda<- date
         tdb <- dataframe[rwz[i]+1,2] 
         ta<-0 #as.numeric(tdb-tda) #   difftime(tdb,tda, unit="secs"))
-        ta<-c(ta,half_timeSamp)
+        ta<-c(ta,0.5)
         da<-c(dataframe[rwz[i]+1,3], depth)
         xout2 <- seq(tda, tdb,by="2 sec") #was 10 secs but changed becasue duplicate confusion
         xout2 <- as.numeric(xout2-tda)
@@ -317,7 +305,6 @@ split.dive<-function(dataframe){
   }
   
 }
-
 #-------------------------------------------------------------------------------
 # phases # function to label surface/ dive phases
 #-------------------------------------------------------------------------------
@@ -372,7 +359,6 @@ depth.diff<-function(dataframe){
   dataframe2<-cbind(dataframe,diff)
   return(dataframe2)
 }
-
 #-------------------------------------------------------------------------------
 # time.diff # function to calculate time difference (s) from previous time
 #-------------------------------------------------------------------------------
@@ -387,7 +373,6 @@ time.diff<-function(dataframe){
   dataframe2<-cbind(dataframe,tim)
   return(dataframe2)
 }
-
 #-------------------------------------------------------------------------------
 # speed.diff # function to calculate speed difference (m/s) from previous speed
 #-------------------------------------------------------------------------------
@@ -617,8 +602,8 @@ split.hangouts<- function(dataframe){
         s2<-d2/t2
         
         #could turtle cross threshold based on speed before/after peak
-        distance_poss1<-s1*half_timeSamp
-        distance_poss2<-s2*half_timeSamp
+        distance_poss1<-s1*0.5
+        distance_poss2<-s2*0.5
         
         distneeded<- -customDive_threshold-depthpoint
         
@@ -655,9 +640,9 @@ split.hangouts<- function(dataframe){
         
         for (i in 1:length(rwz)){
           t1<- dataframe[fill2[i],1] 
-          t2 <- t1+half_timeSamp 
+          t2 <- t1+0.5 
           # t<-as.numeric(t1-t1)
-          t<-c(0,half_timeSamp)
+          t<-c(0,0.5)
           d<-c(dataframe[rwz[i],2], 0)
           xout <- seq(t1,t2,by="2 sec") #was 10 secs but changed becasue duplicate confusion
           xout <- as.numeric(xout-t1)
@@ -690,7 +675,7 @@ split.hangouts<- function(dataframe){
           tda<- date
           tdb <- dataframe[rwz[i]+1,1] 
           ta<-0 #as.numeric(tdb-tda) #   difftime(tdb,tda, unit="secs"))
-          ta<-c(ta,half_timeSamp)
+          ta<-c(ta,0.5)
           da<-c(dataframe[rwz[i]+1,2], depth)
           xout2 <- seq(tda, tdb,by="2 sec") #was 10 secs but changed becasue duplicate confusion
           xout2 <- as.numeric(xout2-tda)
@@ -959,7 +944,7 @@ dive_summary<-function(dataframe){
     dep1<-dataframe[bfin,2]
     dep2<-dataframe[ascfin,2]
     
-    xout <- seq(t1,t2,by=xout_timeSamp) #maybe change to 300 secs
+    xout <- seq(t1,t2,by="1 sec") #maybe change to 300 secs
     
     xout2 <- as.numeric(xout-t1)
     
