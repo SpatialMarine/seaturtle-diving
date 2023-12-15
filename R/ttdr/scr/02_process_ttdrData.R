@@ -14,7 +14,11 @@
 #11. if transmission stops during the last dive then remove
 #12. Split 'hangouts' if possible for turtle the reach surface and return to next reading
 
-metadata <- read.csv(paste0(input_data, "TODB_2023-12-09_diveAnalysis.csv"))
+#set paths
+input_data <- paste0(input_dir, "/tracking/")
+output_data <- paste0(output_dir, "/TTDR")
+metadata <- read.csv(paste0(input_dir, "/tracking/TODB_2023-12-09_diveAnalysis.csv"))
+
 
 for (i in 1:nrow(metadata)){
 ################################################################################
