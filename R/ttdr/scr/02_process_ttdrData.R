@@ -14,7 +14,7 @@
 #11. if transmission stops during the last dive then remove
 #12. Split 'hangouts' if possible for turtle the reach surface and return to next reading
 
-metadata <- read.csv(paste0(input_dir, "TODB_2023-12-09_diveAnalysis.csv"))
+metadata <- read.csv(paste0(input_data, "TODB_2023-12-09_diveAnalysis.csv"))
 
 for (i in 1:nrow(metadata)){
 ################################################################################
@@ -25,7 +25,7 @@ for (i in 1:nrow(metadata)){
 organismID <- metadata$ptt[i]
 
 print(paste("Processing", organismID))
-input_ttdrData <- paste0(input_dir,organismID,"/",organismID, "-Series.csv" )
+input_ttdrData <- paste0(input_data,organismID,"/",organismID, "-Series.csv" )
 
 data <- read.csv(input_ttdrData)
 # TTDR data, WCT 5 minute bins so:
@@ -63,6 +63,10 @@ if (any(duplicated(ttdr$date))){
 tdrdata <- createTDR(time = ttdr$date, depth = ttdr$depth,
                      dtime = 300,  # sampling interval (in seconds)
                      file = "ttdr.csv")  # path to the file
+
+#change this number for desired dive threshold
+customDive_threshold=8.00
+
 
 ## Calibrate with ZOC using filter method.
 #The method consists of recursively smoothing and filtering the input time series 
@@ -219,7 +223,7 @@ ascDescFin_short
 
 #write CSV of preprocessed data!!
 #write.csv(ascDescFin_short, "C:/Users/user/Desktop/tort/finalrun_7mthresh/preprocessed_dives_151935.csv")
-ascDescFin_short_file <- paste0(output_dir, "preprocessed_dives_", organismID, ".csv")
+ascDescFin_short_file <- paste0(output_data, "preprocessed_dives_", organismID, ".csv")
 write.csv(ascDescFin_short, ascDescFin_short_file)
 
 ################################################################################
@@ -387,7 +391,7 @@ diveSurfBind_ord<-diveSurfBind[order(diveSurfBind$date),]
 
 diveSurfBind_ord<-diveSurfBind_ord[!duplicated(diveSurfBind_ord), ]
 
-diveSurfBind_ord_file <- paste0(output_dir, "split_dive_", organismID, ".csv")
+diveSurfBind_ord_file <- paste0(output_data, "split_dive_", organismID, ".csv")
 write.csv(diveSurfBind_ord, diveSurfBind_ord_file)
 
 
@@ -533,11 +537,11 @@ final_dives<-diveSurfBind2.1[!duplicated(diveSurfBind2.1), ]
  final_dives<-diveSurfBind2.1[!duplicated(diveSurfBind2.1), ]
 }
   
-final_dives_file <- paste0(output_dir, "final_forprocess_", organismID, ".csv")
+final_dives_file <- paste0(output_data, "final_forprocess_", organismID, ".csv")
 write.csv(final_dives, final_dives_file)
 
 #clean environment from previous loop iteration
-rm(list=setdiff(ls(), c("output_dir","input_dir","metadata", "i")))
+rm(list=setdiff(ls(), c("output_data","input_data","metadata", "i")))
 }
 ################################## Finish loops#################################
 beep()
