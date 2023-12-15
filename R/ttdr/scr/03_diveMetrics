@@ -7,6 +7,10 @@
 #3. Extract dive summaries
 #4. Load and bind all files together for HMM input
 
+input_data <- paste0(input_dir, "/tracking/")
+output_data <- paste0(output_dir, "/TTDR")
+metadata <- read.csv(paste0(input_dir, "/tracking/TODB_2023-12-09_diveAnalysis.csv"))
+
 for (i in 1:nrow(metadata)){
 organismID <- metadata$ptt[i]
 ################################################################################
@@ -135,7 +139,7 @@ write.csv(dive_summaries, dive_summaries_file)
 
 head(dive_summaries)
 #clean environment from previous loop iteration
-rm(list=setdiff(ls(), c("output_data","input_dir","metadata", "i")))
+rm(list=setdiff(ls(), c("output_data","input_data","metadata", "i")))
 
 }
 
