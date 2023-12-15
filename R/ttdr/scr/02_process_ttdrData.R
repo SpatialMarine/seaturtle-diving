@@ -64,10 +64,6 @@ tdrdata <- createTDR(time = ttdr$date, depth = ttdr$depth,
                      dtime = 300,  # sampling interval (in seconds)
                      file = "ttdr.csv")  # path to the file
 
-#change this number for desired dive threshold
-customDive_threshold=8.00
-
-
 ## Calibrate with ZOC using filter method.
 #The method consists of recursively smoothing and filtering the input time series 
 #using moving quantiles.It uses a sequence of window widths and quantiles, and starts
