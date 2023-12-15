@@ -1,0 +1,22 @@
+#-----------------------------------------------------------------------
+# main_tracking.R
+#-----------------------------------------------------------------------
+source("setup.R")
+source("fun/fun__process_ttdrData_diveMetrics)
+
+#---------------------------------------------------------------
+# 1. Set parameters for processing
+#---------------------------------------------------------------
+#change this number for desired dive threshold, for this paper we use 8.00m
+customDive_threshold=8.00
+
+#---------------------------------------------------------------
+# Processing TTDR data
+#---------------------------------------------------------------
+# TDR data processing
+source("R/ttdr/scr/02_process_ttdrData.R")  # process TDR
+
+#Extract dive metrics
+source("R/ttdr/scr/03_diveMetrics.R")  # Extract final dives and metrics
+
+
