@@ -14,7 +14,7 @@ organismID <- metadata$ptt[i]
 # Step 1. Relabel all data#
 #------------------------------------------------------------------------------#
 ################################################################################
-proc_data<- read.csv(paste0(output_dir, "final_forprocess_", organismID, ".csv"))
+proc_data<- read.csv(paste0(output_data, "final_forprocess_", organismID, ".csv"))
 
 ##grep to add 00's to midnight
 proc_data$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",proc_data$date)] <- paste(
@@ -91,7 +91,7 @@ dives_complete<-dives_complete[order(dives_complete$date),]
 
 dives_complete$organismID<-organismID
 
-dives_complete_file <- paste0(output_dir, "processed_dives_", organismID, ".csv")
+dives_complete_file <- paste0(output_data, "processed_dives_", organismID, ".csv")
 write.csv(dives_complete, dives_complete_file)
 ################################################################################
 ###----------------------------------------------------------------------------#
@@ -130,12 +130,12 @@ dive_summaries<-surf.time(dive_summaries)
 colnames(dive_summaries)[colnames(dive_summaries) == "tim3"] ="surface_int"
 
 
-dive_summaries_file <- paste0(output_dir, "dive_summarys_", organismID, ".csv")
+dive_summaries_file <- paste0(output_data, "dive_summarys_", organismID, ".csv")
 write.csv(dive_summaries, dive_summaries_file)
 
 head(dive_summaries)
 #clean environment from previous loop iteration
-rm(list=setdiff(ls(), c("output_dir","input_dir","metadata", "i")))
+rm(list=setdiff(ls(), c("output_data","input_dir","metadata", "i")))
 
 }
 
@@ -144,24 +144,24 @@ rm(list=setdiff(ls(), c("output_dir","input_dir","metadata", "i")))
 ### Step 4.  Load and bind all files together for HMM input #
 ###----------------------------------------------------------------------------#
 ################################################################################
-files<-list.files(path=output_dir, pattern="dive_summarys_")
-tables <- lapply(paste0(output_dir,files), read.csv, header = TRUE)
+files<-list.files(path=output_data, pattern="dive_summarys_")
+tables <- lapply(paste0(output_data,files), read.csv, header = TRUE)
 combined.df <- do.call(rbind , tables)
-all_diveSummaries_file <- paste0(output_dir, "allDiveSummaries", ".csv")
+all_diveSummaries_file <- paste0(output_data, "allDiveSummaries", ".csv")
 write.csv(combined.df, all_diveSummaries_file)
 
 
 combined.df_short<-combined.df[,c(2,3,4,5,6,7,8,13,17,18,33,35,7,34,46,47,48,49,50)]
 colnames(combined.df_short)
 
-all_diveSummaries_file_short <- paste0(output_dir, "allDiveSummaries_short", ".csv")
+all_diveSummaries_file_short <- paste0(output_data, "allDiveSummaries_short", ".csv")
 write.csv(combined.df_short, all_diveSummaries_file_short)
 
 #also bind raw processed depths for visualisation
-files<-list.files(path=output_dir, pattern="processed_dives_")
+files<-list.files(path=output_data, pattern="processed_dives_")
 files<-grep(files, pattern='pre', invert=TRUE, value=TRUE)
-tables <- lapply(paste0(output_dir,files), read.csv, header = TRUE)
+tables <- lapply(paste0(output_data,files), read.csv, header = TRUE)
 combined.df <- do.call(rbind , tables)
-all_diveDepths_file <- paste0(output_dir, "allDiveDepths", ".csv")
+all_diveDepths_file <- paste0(output_data, "allDiveDepths", ".csv")
 write.csv(combined.df, all_diveDepths_file)
 ################################## Finish!######################################
