@@ -1,0 +1,28 @@
+#-----------------------------------------------------------------------
+# main_tracking.R
+#-----------------------------------------------------------------------
+source("setup.R")
+
+source("fun/fun_highres_segmentation_validation)# this requires different input parameters to the low resolution dive.
+#---------------------------------------------------------------
+# 1. Set parameters for processing
+#---------------------------------------------------------------
+#change this number for desired dive threshold, for this paper we use 8.00m
+customDive_threshold=8.00
+
+#---------------------------------------------------------------
+#2.  Process 1 second data
+#---------------------------------------------------------------
+source("R/ttdr/scr/Validation of segmentation with 1-second data (Supplementary)_01.R")
+
+#---------------------------------------------------------------
+#3.  Subsample 300 second data and process
+#---------------------------------------------------------------
+source("fun/fun__process_ttdrData_diveMetrics)
+source("R/ttdr/scr/Validation of segmentation with 1-second data (Supplementary)_02.R") 
+
+#---------------------------------------------------------------
+#4. Compare outputs for 1 second and 300 second sampling
+#---------------------------------------------------------------
+source("R/ttdr/scr/compare_segmentations.R") 
+
