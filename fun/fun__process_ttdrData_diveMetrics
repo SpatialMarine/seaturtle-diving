@@ -1,22 +1,5 @@
 #functions for 02_process_ttdrData.R and 03_diveMetrics. Jessica Harvey-Carroll (carrolljessh@gmail.com/ jessica.carroll@bioenv.gu.se). 2023#
-################################################################################
-#------------------------------------------------------------------------------#
-# Step 0. Preliminaries- load packages #
-#------------------------------------------------------------------------------#
-################################################################################
-require(dplyr)
-require(lubridate)
-require(diveMove)
-library(zoo)
-library(changepoint)
-library(akima)
-library(data.table)
-library(beepr)
-library(pracma)
-library(changepoint)
-library(tidyr)
 
-#run functions
 #-------------------------------------------------------------------------------
 # wc2ttdr  Processes Wildlife Computers Time-Series csv files
 #-------------------------------------------------------------------------------
