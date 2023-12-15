@@ -1,0 +1,59 @@
+
+################################################################################
+#now compare one second data and resampled 5 min data
+
+fiveMin<- read.csv(paste0(output_data, "dive_summarys_fiveMin.csv"))
+
+oneSec<-read.csv(paste0(output_data, "dive_summarys_oneSec.csv"))
+
+
+#add sample interval for combining
+oneSec$sample<-"1 sec"
+fiveMin$sample<-"300 sec"
+
+#filter dives with max depth greater than 10m
+one_filt<-oneSec %>% filter (maximumDepth>10)
+five_filt<-fiveMin %>% filter (maximumDepth>10)
+
+#how manys dives for each sampling interval?
+nrow(one_filt)
+nrow(five_filt)
+
+#bind dives together
+allSamples<-rbind(oneSec,fiveMin)
+
+#frequency table
+table(allSamples$sample,allSamples$maximumDepth)
+
+#bin maximum depths 
+tot_bin<-allSamples %>% mutate(new_bin = cut(maximumDepth, breaks=c(10, 20, 30,40,50,60,70,80)))
+
+#make a frequency table of bins
+freqTab<-table(tot_bin$new_bin, tot_bin$sample)
+#convert to dataframe
+freqTab<-as.data.frame.matrix(freqTab)
+
+#run fishers test to see if there is a difference between sampling intervals and maximum depths.
+fisher.test(freqTab)
+
+
+#visualise dives
+fiveMinGraph<-read.csv(paste0(output_data, "processed_dives_fiveMin.csv"))
+oneSecGraph<-read.csv(paste0(output_data, "processed_dives_oneSec.csv"))
+
+oneSecGraph$date <- as.POSIXct(oneSecGraph$date,format="%Y-%m-%d %H:%M:%S",tz="CET") 
+
+
+fiveMinGraph$date <- as.POSIXct(fiveMinGraph$date,format="%Y-%m-%d %H:%M:%S",tz="CET") 
+
+oneSecGraph$sample<-"1 sec"
+fiveMinGraph$sample<-"300 sec"
+
+#allSamples<-rbind(one,five)
+
+library(plotly)
+
+#dives under 10m shown here. threshold was set to 7m for processing.
+plot_ly(fiveMinGraph, x = ~date, y = ~-depth, type = 'scatter', mode = 'lines')
+
+plot_ly(oneSecGraph, x = ~date, y = ~-depth, type = 'scatter', mode = 'lines')
