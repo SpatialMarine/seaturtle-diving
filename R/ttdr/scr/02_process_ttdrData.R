@@ -88,6 +88,22 @@ dcalib <-calibrateDepth(tdrdata,
 ## Incorporate adjusted depth and offset. Now use this as raw data.
 ttdr <- cbind(ttdr, depth_adj = dcalib@tdr@depth, depth_offset = ttdr$depth - dcalib@tdr@depth)
 
+#calculate error ranges for device
+## Calculate depth error
+d_error <- depth_error(depth = ttdr$depth_adj, drange = ttdr$drange)
+ttdr$depthUpperError <- round(d_error$upper.error, 2)
+ttdr$depthLowerError <- round(d_error$lower.error, 2)
+
+# Calculate temperature error
+ttdr$temperatureError <- temp_error(ttdr$trange)
+
+# Temperature regional range test (Mediterranean Argo)
+# 1: good data; 4: bad data
+ttdr$temperatureQC1 <- trange_test(ttdr$temperature, ttdr$temperatureError, tmin=10, tmax=40)
+
+depthTempError_file <- paste0(output_data, "depthError", organismID, ".csv")
+write.csv(ttdr, depthTempError_file)
+
 ################################################################################
 #------------------------------------------------------------------------------#
 # Step 3. Identify phases #
