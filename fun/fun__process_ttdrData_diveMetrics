@@ -1,5 +1,23 @@
 #functions for 02_process_ttdrData.R and 03_diveMetrics. Jessica Harvey-Carroll (carrolljessh@gmail.com/ jessica.carroll@bioenv.gu.se). 2023#
+#functions for 02_process_ttdrData.R and 03_diveMetrics. Jessica Harvey-Carroll (carrolljessh@gmail.com/ jessica.carroll@bioenv.gu.se). 2023#
+################################################################################
+#------------------------------------------------------------------------------#
+# Step 0. Preliminaries- load packages #
+#------------------------------------------------------------------------------#
+################################################################################
+require(dplyr)
+require(lubridate)
+require(diveMove)
+library(zoo)
+library(changepoint)
+library(akima)
+library(data.table)
+library(beepr)
+library(pracma)
+library(changepoint)
+library(tidyr)
 
+#run functions
 #-------------------------------------------------------------------------------
 # wc2ttdr  Processes Wildlife Computers Time-Series csv files
 #-------------------------------------------------------------------------------
@@ -447,7 +465,6 @@ speed<-function(dataframe){
 #-------------------------------------------------------------------------------
 # dive.phaselab # function to label phases of dive
 #-------------------------------------------------------------------------------
-
 dive.phaselab<-function(dataframe){
   
   dataframeDepthError<-dataframe
@@ -795,7 +812,6 @@ split.hangouts<- function(dataframe){
 #-------------------------------------------------------------------------------
 # dive_summary # function to extract dive summaries from individual dives
 #-------------------------------------------------------------------------------
-
 dive_summary<-function(dataframe){
   #descent time
   bstart<-which(dataframe$ph3=='bottom')
@@ -812,7 +828,7 @@ dive_summary<-function(dataframe){
   maximumDepthUpper<-dataframe$depthUpperError[which.max(dataframe$depth)]
   maximumDepthLower<-dataframe$depthLowerError[which.max(dataframe$depth)]
   
-    #regre<-0.5172* maximumDepth - 0.4106 from sandras 1999 green turtle paper
+  #regre<-0.5172* maximumDepth - 0.4106 from sandras 1999 green turtle paper
   #mode
   v<-dataframe$depth
   getmode <- function(v) {
@@ -938,7 +954,7 @@ dive_summary<-function(dataframe){
   diveEndTime<-divefin[1]
   diveTime<-as.numeric(diveEndTime-diveStartTime)*60
   
- 
+  
   nr<- nrow(dataframe)
   maxround<-round(maximumDepth, digits=1) #can get rid of for entire dive cp
   
@@ -1017,7 +1033,7 @@ dive_summary<-function(dataframe){
   bottomSD<- sd(bottom$depth)
   
   ##indication of if ascent traj curved
-
+  
   
   #extrapolate straight line for ascent
   if(nrow(a)>2 & nrow(bot2)>0){
@@ -1179,6 +1195,7 @@ aboveSST <- function(temp, temp.er, sst, temp.thr = 4){
   tdif <- (temp - temp.er) - sst
   ifelse(tdif >= temp.thr, 4, 1)  # 4: bad data; 1: good data
 }
+#--------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------------------
 # depth_error.R     Function to calculate depth error from Time-Series data on SPLASH tags
