@@ -447,7 +447,14 @@ speed<-function(dataframe){
 #-------------------------------------------------------------------------------
 # dive.phaselab # function to label phases of dive
 #-------------------------------------------------------------------------------
+
 dive.phaselab<-function(dataframe){
+  
+  dataframeDepthError<-dataframe
+  
+  dataframe<-dataframe %>% select(date,depth,phase,thresh,diveno,diff,tim,spd,direction)
+  
+  
   #descent
   p<-dataframe$depth[which.max(dataframe$depth)]
   p2<-p*0.8
@@ -498,13 +505,25 @@ dive.phaselab<-function(dataframe){
     dataframe<-depth.diff(dataframe)
     dataframe<-time.diff(dataframe)  
     dataframe<-speed(dataframe)
+    
+    if("depthUpperError" %in% colnames(dataframeDepthError)){
+      depthErrorDF<-  dataframeDepthError %>% select(date,depthUpperError, depthLowerError)
+      depthErrorDF$date <- as.POSIXct(depthErrorDF$date,format="%Y-%m-%d %H:%M:%S",tz="CET") 
+      depthErrorDFMerge<- merge(dataframe, depthErrorDF, by="date", all.x = TRUE) 
+      depthErrorDFMerge<-depthErrorDFMerge[order(depthErrorDFMerge$date),]
+      dataframe<-depthErrorDFMerge
+    }
+    
+    
     return(dataframe)
   }
   else {
     p3<-which(dataframe$depth >=p2)[1]
     p4=p3-1
     dataframe$descent<- NA
-    dataframe[1:p4,10]<- "descent"
+    #dataframe[1:p4,10]<- "descent"
+    dataframe$descent[1:p4] <- "descent"
+    
     
     #ascent
     #find max depth and first occurance of max depth
@@ -569,6 +588,18 @@ dive.phaselab<-function(dataframe){
     dataframenew<-speed(dataframenew)
     
     dataframenew<- dataframenew[-c(8:10)]
+    
+    
+    if("depthUpperError" %in% colnames(dataframeDepthError)){
+      depthErrorDF<-  dataframeDepthError %>% select(date,depthUpperError, depthLowerError)
+      depthErrorDF$date <- as.POSIXct(depthErrorDF$date,format="%Y-%m-%d %H:%M:%S",tz="CET") 
+      depthErrorDFMerge<- merge(dataframenew, depthErrorDF, by="date", all.x = TRUE) 
+      depthErrorDFMerge<-depthErrorDFMerge[order(depthErrorDFMerge$date),]
+      dataframenew<-depthErrorDFMerge
+    }
+    
+    
+    
     return(dataframenew)
   }
 }
@@ -764,6 +795,7 @@ split.hangouts<- function(dataframe){
 #-------------------------------------------------------------------------------
 # dive_summary # function to extract dive summaries from individual dives
 #-------------------------------------------------------------------------------
+
 dive_summary<-function(dataframe){
   #descent time
   bstart<-which(dataframe$ph3=='bottom')
@@ -775,9 +807,12 @@ dive_summary<-function(dataframe){
   desc_d<-abs(dataframe[c(1:descd2),8])
   descensionDistance<-sum(desc_d,na.rm=TRUE)
   
-  
+  #maximum depth, upper and lower error
   maximumDepth<-dataframe$depth[which.max(dataframe$depth)]
-  #regre<-0.5172* maximumDepth - 0.4106 from sandras 1999 green turtle paper
+  maximumDepthUpper<-dataframe$depthUpperError[which.max(dataframe$depth)]
+  maximumDepthLower<-dataframe$depthLowerError[which.max(dataframe$depth)]
+  
+    #regre<-0.5172* maximumDepth - 0.4106 from sandras 1999 green turtle paper
   #mode
   v<-dataframe$depth
   getmode <- function(v) {
@@ -903,7 +938,7 @@ dive_summary<-function(dataframe){
   diveEndTime<-divefin[1]
   diveTime<-as.numeric(diveEndTime-diveStartTime)*60
   
-  
+ 
   nr<- nrow(dataframe)
   maxround<-round(maximumDepth, digits=1) #can get rid of for entire dive cp
   
@@ -982,7 +1017,7 @@ dive_summary<-function(dataframe){
   bottomSD<- sd(bottom$depth)
   
   ##indication of if ascent traj curved
-  
+
   
   #extrapolate straight line for ascent
   if(nrow(a)>2 & nrow(bot2)>0){
@@ -1037,7 +1072,7 @@ dive_summary<-function(dataframe){
   #a1/maximumDepth*100
   
   #put all in dataframe
-  sum_df<- data.frame(diveStartTime, descensionTime,descensionDistance, bottomTime, ascensionTime, ascensionDistance, maximumDepth, peakTime, peakHeight, numberOfPeaks, mode, numberAscentionChangepoints, numberDescensionChangepoints, depthAscentionChangepoint1, depthAscentionChangepoint2, bottomDistance, diveTime, totalChangepoints, exclude, flatAscentionChangepoint, descentAfterStatAscent, differenceBetweenFlatAscentPoints, maxDepthPropOfDive, numberOfReadingsFirstFifth, numberOfReadingsSecondFifth, numberOfReadingsThirdFifth, numberOfReadingsFourthFifth, numberOfReadingsFifthFifth, maxDepthUnderTenM, whichFifthTime, proportionMaxDepthAfterPeak, descentSD, restSD, ascentSD, peakSD, bottomSD, firstAscentionPointSixtyMaxDepth, ascentOffsetStraightTrajectory, ascentTrajectoryDirection, proportionDiveAscent, proportionDiveBottom, secondAscentionChangepointeighty, stationaryAscent,diveEndTime)
+  sum_df<- data.frame(diveStartTime, descensionTime,descensionDistance, bottomTime, ascensionTime, ascensionDistance, maximumDepth, peakTime, peakHeight, numberOfPeaks, mode, numberAscentionChangepoints, numberDescensionChangepoints, depthAscentionChangepoint1, depthAscentionChangepoint2, bottomDistance, diveTime, totalChangepoints, exclude, flatAscentionChangepoint, descentAfterStatAscent, differenceBetweenFlatAscentPoints, maxDepthPropOfDive, numberOfReadingsFirstFifth, numberOfReadingsSecondFifth, numberOfReadingsThirdFifth, numberOfReadingsFourthFifth, numberOfReadingsFifthFifth, maxDepthUnderTenM, whichFifthTime, proportionMaxDepthAfterPeak, descentSD, restSD, ascentSD, peakSD, bottomSD, firstAscentionPointSixtyMaxDepth, ascentOffsetStraightTrajectory, ascentTrajectoryDirection, proportionDiveAscent, proportionDiveBottom, secondAscentionChangepointeighty, stationaryAscent,diveEndTime, maximumDepthUpper, maximumDepthLower)
   
   return(sum_df)
   
@@ -1062,3 +1097,193 @@ surf.time<-function(dataframe){
   return(dataframe2)
 }
 #-------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------------
+# getSST     Generate SST product
+#--------------------------------------------------------------------------------
+getSST <- function(data){
+  # This function fixed several problems found on the initial test.
+  # 1) I found high temperature values for some points. This is mainly because I initially consider
+  #    all dives and postdives. I have sorted this out by:
+  #    a) filtering dives >10 minutes long (ie. at least 2 registers per dive).
+  #    b) filtering out dives <5 m deep (use lower error estimate). shallow dives could be affected)
+  # 2) There were low temperature values for two reasons:
+  #    a) Some postdives present without depth data. I filtered those out
+  #    b) First register of postdive very similar to previous underwater register. I selected the second register per postdive. 
+  
+  
+  data$surf_int<- NA
+  
+  j<-2 #j is a counter
+  data$surf_int[1] <- 1 #label the first row as 1 so that it is not NA
+  
+  #loop through and label first surface after dive
+  for (i in 2:nrow(data)){      #starts at 2
+    if (is.na(data$diveno[i]) & !is.na(data$diveno[i-1])){
+      data$surf_int[i] <- j
+      j<-j+1
+    } 
+    print(nrow(data)-i)
+  }
+  
+  data
+  
+  #nalocf for all surface intervals
+  data$surf_int<-na.locf(data$surf_int)
+  
+  # make sure only surface phases numbered
+  data<-data %>%
+    mutate(surf_intID = case_when(!is.na(diveno) ~ NA,
+                                  TRUE ~ surf_int))
+  
+  ## First, select dives with more than 10 minutes of duration.
+  
+  dive10<-dive_summaries %>%
+    filter(diveTime>600 & maximumDepth> 5)
+  
+  
+  ## Indetify second time stamp of a postdive
+  sst <- data %>%
+    group_by(surf_intID) %>%
+    arrange(date) %>%
+    slice(2) %>%  # take the second register from the postdive
+    ungroup
+  
+  
+  
+  sst <- filter(sst, surf_intID > 3,  # remove first 3 dives
+                surf_intID %in% dive10$diveID,
+                temperatureQC1 == 1,  # select temperature data within range
+                !is.na(depth.x)) # select data with depth information
+  
+  
+  
+  
+  
+  # 
+  # 
+  # sst <- filter(sst, surf_intID > 3,  # remove first 3 dives
+  #               surf_intID %in% dives_complete$diveno,
+  #               temperatureQC1 == 1,  # select temperature data within range
+  #               !is.na(depth.x)) # select data with depth information
+  return(sst)
+}
+#--------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------------
+# aboveSST     Temperature above SST test
+#--------------------------------------------------------------------------------
+aboveSST <- function(temp, temp.er, sst, temp.thr = 4){
+  # In order to be more consevative, we use the lower band of the temperature data (temperature - temperature error)
+  
+  tdif <- (temp - temp.er) - sst
+  ifelse(tdif >= temp.thr, 4, 1)  # 4: bad data; 1: good data
+}
+
+#-------------------------------------------------------------------------------------------
+# depth_error.R     Function to calculate depth error from Time-Series data on SPLASH tags
+#-------------------------------------------------------------------------------------------
+depth_error <- function(depth, drange, percent=0.01, res=0.5){
+  # Arguments:
+  # depth           Depth reading (meters, positive value)
+  # drange          Resolution of the reading
+  # percent         Percentage of the reading
+  # res             Sensor resolution
+  #
+  # Value:
+  # Upper and lower depth error (in meters, positive value)
+  #
+  # Information about the sensor:
+  # range: -40 to +1000m
+  # resolution: 0.5 m
+  # accuracy: +-1% of the reading. Also: 1% of the reading +/-2 depth sensor resolutions
+  #
+  # Decription:
+  # This function only applies for Time-Series data from Wildlife Computers. 
+  # Dynamic range of the dive readings during the summary period determine
+  # the Time-Series Data resolution (Kevin Lay, Wildlife Computers).
+  #
+  # Usage:
+  # depth <- 60
+  # drange <- 6.25
+  # e <- depth_error(depth=depth, drange)
+  
+  # Calculate upper and lower resolution bands
+  upper.band <- depth + drange
+  lower.band <- depth - drange
+  
+  # Calculate sensor accuracy for upper and lower bands
+  upper.accuracy <- upper.band * percent + 2 * res
+  lower.accuracy <- lower.band * percent + 2 * res
+  
+  # Calculate total depth error (resolution + accuracy)
+  upper.error <- upper.band + upper.accuracy
+  lower.error <- lower.band - lower.accuracy
+  # if(lower.error < 0) lower.error <- 0
+  if (any(lower.error < 0)) lower.error[lower.error < 0] <- 0
+  
+  return(data.frame(upper.error=upper.error, lower.error=lower.error))
+}
+#-------------------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------------------
+# temp_error     Function to calculate depth error from Time-Series data on SPLASH tags
+#-------------------------------------------------------------------------------------------
+temp_error <- function(trange, accuracy = 0.1){
+  # Arguments:
+  # trange          Resolution of the reading
+  # percent         Accuracy of the sensor
+  #
+  # Value:
+  # Temperature error (in degrees)
+  #
+  # Information about the sensor:
+  # range: -40 to 60 degrees celsius
+  # resolution: 0.05 degrees
+  # accuracy: +- 0.1 degrees
+  #
+  # Decription:
+  # This function only applies for Time-Series data from Wildlife Computers. 
+  # Dynamic range of the readings during the summary period determine
+  # the Time-Series Data resolution (Kevin Lay, Wildlife Computers).
+  #
+  # Usage:
+  # trange <- 0.85
+  # e <- temp_error(trange)
+  
+  # Calculate total depth error (resolution + accuracy)
+  e <- trange + accuracy
+  return(e)
+}
+#-------------------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------------
+# trange_test     QC test using global temperature range
+#--------------------------------------------------------------------------------
+trange_test <- function(temp, temp.error=0, tmin=10, tmax=40){
+  # Arguments
+  # t         temperature
+  # terror    temperature error. Default is 0 (no error)
+  # tmin      minimum temperature range
+  # tmax      maximum temperature range
+  #
+  # Values
+  # QC flags: 0, 1, 2, 3, 4, 5
+  # Returns NA when temperature data is not available
+  #
+  # Note
+  # temperature range (tmin and tmax) have been calculated for Western Mediterranean...
+  # Check what trange variable from Wildlife Computers means
+  #
+  # Refs:
+  # - Argo regional values for Mediterranean Sea (10-40): http://www.argodatamgt.org/content/download/341/2650/file/argo-quality-control-manual-V2.7.pdf
+  # - https://www.ukargo.net/data/quality_control/
+  #
+  # Usage
+  # temp <- 18.8
+  # temp.error <- 0.95
+  # trange_test(temp, temp.error)
+  ifelse(temp + temp.error >= tmin & temp - temp.error <= tmax, 1, 4)  # 1: good data; 4: bad data
+}
+#--------------------------------------------------------------------------------
+
