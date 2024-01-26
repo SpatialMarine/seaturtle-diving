@@ -191,6 +191,7 @@ mergedTTDRProc$aboveSST <- aboveSST(temp = mergedTTDRProc$temperature, temp.er =
 
 
 mergedTTDRProc$aboveSST<-na.locf(mergedTTDRProc$aboveSST,na.rm = FALSE)
+mergedTTDRProc = mergedTTDRProc[!duplicated(mergedTTDRProc$diveStartTime),]
 
 #nrow(mergedTTDRProc %>% filter (aboveSST== 1))
 names(dive_summaries)[names(dive_summaries) == "diveStartTime"] <- "date"
@@ -198,7 +199,7 @@ names(dive_summaries)[names(dive_summaries) == "diveStartTime"] <- "date"
 finalDiveSummaries<-merge(dive_summaries, mergedTTDRProc, by="date") 
 
 finalDiveSummaries<-finalDiveSummaries[,c(1:51, 62:68)]
-
+names(dive_summaries)[names(dive_summaries) == "date"] <- "diveStartTime"
 dive_summariesSST_file <- paste0(output_data, "dive_summarysSST_", organismID, ".csv")
 write.csv(finalDiveSummaries, dive_summariesSST_file)
 
