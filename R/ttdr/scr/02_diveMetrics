@@ -190,7 +190,7 @@ mergedTTDRProc$aboveSST <- aboveSST(temp = mergedTTDRProc$temperature, temp.er =
                           sst = mergedTTDRProc$sst, temp.thr = 2)
 
 
-mergedTTDRProc$aboveSST<-na.locf(mergedTTDRProc$aboveSST)
+mergedTTDRProc$aboveSST<-na.locf(mergedTTDRProc$aboveSST,na.rm = FALSE)
 
 #nrow(mergedTTDRProc %>% filter (aboveSST== 1))
 names(dive_summaries)[names(dive_summaries) == "diveStartTime"] <- "date"
