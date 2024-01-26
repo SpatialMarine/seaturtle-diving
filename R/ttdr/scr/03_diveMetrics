@@ -74,7 +74,7 @@ compDivesMerge<- merge(direc, compDives, by="date", all.x = TRUE)
 compDivesMerge<-compDivesMerge[order(compDivesMerge$date),]
 
 #split dives by number
-data_sep<-split(direc, direc$diveno)
+data_sep<-split(compDivesMerge, compDivesMerge$diveno)
 
 #find total number of dives
 lastDive<-tail((names(data_sep)), n=1)
