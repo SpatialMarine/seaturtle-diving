@@ -56,6 +56,23 @@ direc<-direc[!duplicated(direc), ]
 # Step 2. Compile final dives###
 #==============================================================================#
 ################################################################################
+#add depth errors to dataframe
+
+#merge with depth error
+depthTempError_file <- paste0(output_data, "depthError", organismID, ".csv")
+tempData<-read.csv(depthTempError_file)
+
+tempData$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",tempData$date)] <- paste(
+  tempData$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",tempData$date)],"00:00:00")
+tempData$date <- as.POSIXct(tempData$date,format="%Y-%m-%d %H:%M:%S",tz="CET") ## Your dates need to be in 
+
+
+compDives<-tempData %>% select(date, depthUpperError, depthLowerError)
+
+compDivesMerge<- merge(direc, compDives, by="date", all.x = TRUE) 
+
+compDivesMerge<-compDivesMerge[order(compDivesMerge$date),]
+
 #split dives by number
 data_sep<-split(direc, direc$diveno)
 
@@ -137,7 +154,54 @@ colnames(dive_summaries)[colnames(dive_summaries) == "tim3"] ="surface_int"
 dive_summaries_file <- paste0(output_data, "dive_summarys_", organismID, ".csv")
 write.csv(dive_summaries, dive_summaries_file)
 
-head(dive_summaries)
+#import depth temp errors
+depthTempError_file <- paste0(output_data, "depthError", organismID, ".csv")
+tempData<-read.csv(depthTempError_file)
+
+#extract dive and surface dpeths from final processed TTDR
+diveTTDRProc<-subset(dives_complete, select = c(date,depth, diveno, organismID))
+surfTTDRProc<-subset(surfReads, select = c(date,depth, diveno, organismID))
+
+#merge together for final dataset for processing
+diveSurfBind_final <- rbind(diveTTDRProc, surfTTDRProc)
+diveSurfBindfinal_ord<-diveSurfBind_final[order(diveSurfBind_final$date),]
+
+mergedTTDRProc<- merge(diveSurfBindfinal_ord, tempData, by="date", all.x = TRUE) 
+
+# #now have fully processed TTDR with appended temp and depth errors
+#calculate SST
+
+sst<-getSST(mergedTTDRProc)
+  
+### Interpolate SST to TimeSeries
+mergedTTDRProc$sst <- approx(x = sst$date, y = sst$temperature, xout = mergedTTDRProc$date, method="linear", rule=2)$y
+mergedTTDRProc$sst <- round(mergedTTDRProc$sst, digits=1)
+mergedTTDRProc$sst_qc <- 8  # interpolated data
+mergedTTDRProc$sst_qc[mergedTTDRProc$date %in% sst$date] <- 1  # good data, no interpolated
+
+#-------------------------------
+# Temperature above SST test
+#-------------------------------
+### This test identifies temperature records that are above the estimated SST, given a temperature threshold
+### We define a temperature threshold of 2 degrees
+### We do not select points on the surface because there may be no depth available when having temperature data
+### 4: bad data; 1: good data
+mergedTTDRProc$aboveSST <- aboveSST(temp = mergedTTDRProc$temperature, temp.er = mergedTTDRProc$temperatureError,
+                          sst = mergedTTDRProc$sst, temp.thr = 2)
+
+
+mergedTTDRProc$aboveSST<-na.locf(mergedTTDRProc$aboveSST)
+
+#nrow(mergedTTDRProc %>% filter (aboveSST== 1))
+names(dive_summaries)[names(dive_summaries) == "diveStartTime"] <- "date"
+
+finalDiveSummaries<-merge(dive_summaries, mergedTTDRProc, by="date") 
+
+finalDiveSummaries<-finalDiveSummaries[,c(1:51, 62:68)]
+
+dive_summariesSST_file <- paste0(output_data, "dive_summarysSST_", organismID, ".csv")
+write.csv(finalDiveSummaries, dive_summariesSST_file)
+
 #clean environment from previous loop iteration
 rm(list=setdiff(ls(), c("output_data","input_data","metadata", "i")))
 
@@ -148,7 +212,7 @@ rm(list=setdiff(ls(), c("output_data","input_data","metadata", "i")))
 ### Step 4.  Load and bind all files together for HMM input #
 ###----------------------------------------------------------------------------#
 ################################################################################
-files<-list.files(path=output_data, pattern="dive_summarys_")
+files<-list.files(path=output_data, pattern="dive_summarysSST_")
 tables <- lapply(paste0(output_data,files), read.csv, header = TRUE)
 combined.df <- do.call(rbind , tables)
 all_diveSummaries_file <- paste0(output_data, "allDiveSummaries", ".csv")
