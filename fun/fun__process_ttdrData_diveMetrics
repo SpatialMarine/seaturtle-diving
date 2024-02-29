@@ -75,9 +75,9 @@ descent.func<-function(dataframe){
     t <- as.numeric(t-t1)
     xout <- as.numeric(xout-t1)
     
-    pred <- aspline(t, d, xout=xout, n=2)  # prediction
+    pred <- aspline(t, d, xout=xout)  # prediction
     
-    pt <- which(pred$y >= customDive_threshold)# get depths below dive threshold
+    pt <- which(round(pred$y, digits = 2) >= customDive_threshold)# get depths below dive threshold
     
     td1= xout[pt[1]]  # first time where depth is > than threshold
     if (td1 == 300){
@@ -108,7 +108,7 @@ descent.func<-function(dataframe){
     ##
     pred<-as.data.frame(pred)
     
-    pred<-filter(pred,y >= customDive_threshold)
+    pred<-filter(pred,round(y, digits = 2) >= customDive_threshold)
     
     td12<-pred[1,2]
     td12<-round(td12, digits=1)
@@ -150,7 +150,8 @@ ascent.func<-function(dataframe){
     
     pred <- aspline(t, d, xout=xout, n=2)  # prediction
     
-    pt <- which(pred$y <= customDive_threshold)# get depths below dive threshold
+    
+    pt <- which(round(pred$y, digits = 2) <= customDive_threshold)# get depths below dive threshold
     
     td1= xout[pt[1]]  # first time where depth is > than threshold
     
@@ -165,33 +166,33 @@ ascent.func<-function(dataframe){
     
   }
   
-  
-  for(j in 1:length(rwz)){
-    t2<- dataframe[rwz[j],1] 
-    t1 <- dataframe[rwz[j]-1,1]  
-    
-    # select TDR data within a dive 
-    fdata <- filter(dataframe, date >= t1 & date <= t2)
-    d <- fdata$depth_adj.x#depths
-    t <- fdata$date #time (in seconds)
-    
-    xout <- seq(t1,t2,by="10 sec")
-    t <- as.numeric(t-t1)
-    xout <- as.numeric(xout-t1)
-    
-    pred <- aspline(t, d, xout=xout, n=2)  # prediction
-    
-    ##
-    pred<-as.data.frame(pred)
-    
-    pred<-filter(pred,y <= customDive_threshold)
-    
-    td12<-pred[1,2]
-    td12<-round(td12, digits=1)
-    
-    ####
-    asc.thresh.dep[rwz[j]] = td12
-  }
+ 
+    for(j in 1:length(rwz)){
+      t2<- dataframe[rwz[j],1] 
+      t1 <- dataframe[rwz[j]-1,1]  
+      
+      # select TDR data within a dive 
+      fdata <- filter(dataframe, date >= t1 & date <= t2)
+      d <- fdata$depth_adj.x#depths
+      t <- fdata$date #time (in seconds)
+      
+      xout <- seq(t1,t2,by="10 sec")
+      t <- as.numeric(t-t1)
+      xout <- as.numeric(xout-t1)
+      
+      pred <- aspline(t, d, xout=xout, n=2)  # prediction
+      
+      ##
+      pred<-as.data.frame(pred)
+      
+      pred<-filter(pred,round(y, digits = 2) <=  customDive_threshold)
+      
+      td12<-pred[1,2]
+      td12<-round(td12, digits=1)
+      
+      ####
+      asc.thresh.dep[rwz[j]] = td12
+    }
   dataframenew = cbind(dataframe,asc.thresh.tim, asc.thresh.dep)
   
   dataframenew$ascenttim <- with(dataframenew, lag(date)+ asc.thresh.tim)
@@ -220,9 +221,9 @@ newint<-function(dataframe){
 #split.dive # function to split dive if peaks detected and possible for turtle to surface based on trajectory
 #-------------------------------------------------------------------------------
 split.dive<-function(dataframe){
+
   
-  
-  p<-findpeaks(-dataframe$depth, threshold =3)
+  p<-findpeaks(-dataframe$depth, threshold = 1)
   j<-as.data.frame(p[,2])
   t<-nrow(j)
   fill=rep(NA, t)
@@ -288,7 +289,9 @@ split.dive<-function(dataframe){
         xout <- seq(t1,t2,by="2 sec") #was 5 secs but values 5.9 so changed for + precision. Was originally was 10 secs but changed becasue duplicate confusion
         xout <- as.numeric(xout-t1)
         pred <- aspline(t, d, xout=xout, n=2)  # prediction
-        pt <- which(pred$y >= 1.00)# get depths below dive threshold
+        pt <- which(round(pred$y, digits=2) >= 1.00)# KEEP AS 1m (top of triangle)
+        
+        
         pt<-rev(pt)
         td1= xout[pt[1]] 
         pt1d<-pt[1]
@@ -300,7 +303,7 @@ split.dive<-function(dataframe){
         de1[i] = depth 
         
         #ab.thresh#
-        pt2<- which(pred$y >= customDive_threshold)
+        pt2<- which(round(pred$y, digits = 2) >= customDive_threshold)
         pt2<-rev(pt2)
         td1.1= xout[pt2[1]] 
         pt2d<-pt2[1]
@@ -319,7 +322,7 @@ split.dive<-function(dataframe){
         xout2 <- seq(tda, tdb,by="2 sec") #was 10 secs but changed becasue duplicate confusion
         xout2 <- as.numeric(xout2-tda)
         pred2 <- aspline(ta, da, xout=xout2, n=2)  # prediction
-        pta <- which(pred2$y >= customDive_threshold)# get depths below dive threshold
+        pta <- which(round(pred2$y, digits=2) >= customDive_threshold)# get depths below dive threshold
         pta<-rev(pta)
         td1a= xout[pta[1]] 
         pt1da<-pta[1]
@@ -334,19 +337,19 @@ split.dive<-function(dataframe){
       de2<-de2[!is.na(de2)]
       de3<-de3[!is.na(de3)]
       
-      new_df <- data.frame(date1 = as.POSIXct(newdv1, format="%Y-%m-%d %H:%M:%S",tz="CET"), 
-                           date2=as.POSIXct(newdv2, format="%Y-%m-%d %H:%M:%S",tz="CET"),
-                           date3=as.POSIXct(newdv3, format="%Y-%m-%d %H:%M:%S",tz="CET"))
+      new_df <- data.frame(date1 = as.POSIXct(newdv1, format="%Y-%m-%d %H:%M:%S",tz="UTC"), 
+                           date2=as.POSIXct(newdv2, format="%Y-%m-%d %H:%M:%S",tz="UTC"),
+                           date3=as.POSIXct(newdv3, format="%Y-%m-%d %H:%M:%S",tz="UTC"))
       
       new_df2 <- data.frame(dep1=de1,
                             dep2=de2,
                             dep3=de3)
       
-      new1<-data.frame(date = as.POSIXct(newdv1, format="%Y-%m-%d %H:%M:%S",tz="CET"), 
+      new1<-data.frame(date = as.POSIXct(newdv1, format="%Y-%m-%d %H:%M:%S",tz="UTC"), 
                        dep=de1)
-      new2<-data.frame(date=as.POSIXct(newdv2, format="%Y-%m-%d %H:%M:%S",tz="CET"),
+      new2<-data.frame(date=as.POSIXct(newdv2, format="%Y-%m-%d %H:%M:%S",tz="UTC"),
                        dep=de2 )
-      new3<-data.frame( date=as.POSIXct(newdv3, format="%Y-%m-%d %H:%M:%S",tz="CET"),
+      new3<-data.frame( date=as.POSIXct(newdv3, format="%Y-%m-%d %H:%M:%S",tz="UTC"),
                         dep=de3)
       
       df<-rbind(new1,new2,new3)
@@ -362,6 +365,7 @@ split.dive<-function(dataframe){
   }
   
 }
+
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
@@ -743,7 +747,7 @@ split.hangouts<- function(dataframe){
           xout <- seq(t1,t2,by="2 sec") #was 10 secs but changed becasue duplicate confusion
           xout <- as.numeric(xout-t1)
           pred <- aspline(t, d, xout=xout, n=2)  # prediction
-          pt <- which(pred$y >= 1.00)# get depths below dive threshold
+          pt <- which(pred$y >= 1)# KEEP AS 1m (top of triangle)
           pt<-rev(pt)
           td1= xout[pt[1]] 
           pt1d<-pt[1]
@@ -755,7 +759,7 @@ split.hangouts<- function(dataframe){
           de[rwz[i]] = depth 
           
           #ab.thresh#
-          pt2<- which(pred$y >= customDive_threshold)
+          pt2<- which(round(pred$y,digits = 2) >= customDive_threshold)
           pt2<-rev(pt2)
           td1.1= xout[pt2[1]] 
           pt2d<-pt2[1]
@@ -776,7 +780,7 @@ split.hangouts<- function(dataframe){
           xout2 <- seq(tda, tdb,by="2 sec") #was 10 secs but changed becasue duplicate confusion
           xout2 <- as.numeric(xout2-tda)
           pred2 <- aspline(ta, da, xout=xout2, n=2)  # prediction
-          pta <- which(pred2$y >= customDive_threshold)# get depths below dive threshold
+          pta <- which(round(pred2$y, digits=2) >= customDive_threshold)# get depths below dive threshold
           pta<-rev(pta)
           td1a= xout[pta[1]] 
           pt1da<-pta[1]
@@ -827,16 +831,6 @@ dive_summary<-function(dataframe){
   maximumDepth<-dataframe$depth[which.max(dataframe$depth)]
   maximumDepthUpper<-dataframe$depthUpperError[which.max(dataframe$depth)]
   maximumDepthLower<-dataframe$depthLowerError[which.max(dataframe$depth)]
-  
-  #regre<-0.5172* maximumDepth - 0.4106 from sandras 1999 green turtle paper
-  #mode
-  v<-dataframe$depth
-  getmode <- function(v) {
-    uniqv <- unique(v)
-    uniqv[which.max(tabulate(match(v, uniqv)))]
-  }
-  mode<-getmode(dataframe$depth)
-  ###
   
   fluc<- filter(dataframe,ph3=='minidesc'| ph3=='miniasc'| ph3=='hangout')
   
@@ -954,7 +948,7 @@ dive_summary<-function(dataframe){
   diveEndTime<-divefin[1]
   diveTime<-as.numeric(diveEndTime-diveStartTime)*60
   
-  
+ 
   nr<- nrow(dataframe)
   maxround<-round(maximumDepth, digits=1) #can get rid of for entire dive cp
   
@@ -966,13 +960,6 @@ dive_summary<-function(dataframe){
   }else{
     totalChangepoints=0
   }
-  #flag dives where rounded max depth =5
-  if(maxround<=customDive_threshold){
-    exclude="Y"
-  } else{
-    exclude="N"
-  }
-  
   #flag platue in ascent
   plat<-which(a$direction == "no change")
   if (length(plat) > 0 ){
@@ -992,34 +979,7 @@ dive_summary<-function(dataframe){
     descentAfterStatAscent<-"0"
   }
   
-  #is difference first part of ascent> asc1:2??
-  differenceBetweenFlatAscentPoints<-as.integer(abs(a[1,8])> abs(a[2,8]))
-  
-  #is first ascent point in 60% of dive depth
-  firstAscentionPointSixtyMaxDepth<-as.integer(a[1,2]<0.6*maximumDepth)
-  
-  #timing of maximumDepth
-  max_time<-as.numeric(diveEndTime-dataframe[which.max(dataframe$depth),1])*60
-  maxDepthPropOfDive<-max_time/diveTime *100
-  
-  #bin dives by number of points in each quater of depth
-  quat<-maximumDepth/5 #was 4
-  quaters<-seq(0,maximumDepth, by= quat)
-  bin<-dataframe %>% mutate(depth_bin = cut(depth, breaks=c(quaters)))
-  fre<-as.data.frame(table(bin$depth_bin))
-  numberOfReadingsFirstFifth<-fre[1,2]
-  numberOfReadingsSecondFifth<-fre[2,2]
-  numberOfReadingsThirdFifth<-fre[3,2]
-  numberOfReadingsFourthFifth<-fre[4,2]
-  numberOfReadingsFifthFifth<-fre[5,2]
-  
-  nm<-c("numberOfReadingsFirstFifth", "numberOfReadingsSecondFifth", "numberOfReadingsThirdFifth", "numberOfReadingsFourthFifth", "numberOfReadingsFifthFifth")
-  totpt<-c(numberOfReadingsFirstFifth,numberOfReadingsSecondFifth,numberOfReadingsThirdFifth,numberOfReadingsFourthFifth,numberOfReadingsFifthFifth)
-  prop2<-data.frame(nm,totpt)
-  whichFifthTime<-prop2[which.max(prop2$totpt),1]
-  #whichFifthTime= what prop spent most of dive
-  #under 10
-  maxDepthUnderTenM<-as.integer(maximumDepth> 10)
+  maxDepthUnderTenM<-as.integer(maximumDepth>= 10)
   
   descent<-dataframe %>% filter(ph3== "descent")
   
@@ -1032,63 +992,17 @@ dive_summary<-function(dataframe){
   ascentSD<-sd(ascent$depth)
   bottomSD<- sd(bottom$depth)
   
-  ##indication of if ascent traj curved
-  
-  
-  #extrapolate straight line for ascent
-  if(nrow(a)>2 & nrow(bot2)>0){
-    t1<- dataframe[bfin,1] 
-    t2 <- dataframe[ascfin,1] 
-    
-    dep1<-dataframe[bfin,2]
-    dep2<-dataframe[ascfin,2]
-    
-    xout <- seq(t1,t2,by="60 sec") #maybe change to 300 secs
-    
-    xout2 <- as.numeric(xout-t1)
-    
-    t<-c(xout2[1], rev(xout2)[1])
-    
-    d<-c(-dep1, dep2)
-    
-    pred <- aspline(t, d, xout=xout2)  # prediction
-    round(pred$y, digits=2)
-    
-    newdf<-cbind(xout,round(pred$y,digits=2))
-    
-    df<-as.data.frame(xout)
-    dep<-round(pred$y,digits=2)
-    newdf<-cbind(df, abs(dep))
-    names(newdf)[1] <- "date"
-    #remove first and last values as dont care
-    newdf2<-newdf[-(1),]
-    newdf3<-slice(newdf2, 1:(n() - 1))  
-    
-    #merge new predictions with existing times
-    newdf4<-merge(dataframe, newdf3, by="date")
-    
-    crv<-newdf4$`abs(dep)`-newdf4$depth
-    
-    ascentOffsetStraightTrajectory<-mean(crv)
-    ascentTrajectoryDirection<-sign(ascentOffsetStraightTrajectory)
-    
-  }else{
-    ascentOffsetStraightTrajectory<- NA
-    ascentTrajectoryDirection<-sign(ascentOffsetStraightTrajectory)
-  }
-  proportionDiveBottom<-bottomTime/diveTime*100
-  proportionDiveAscent<-ascensionTime/diveTime*100
-  
-  if (nrow(a)>1){
-    stationaryAscent<-a[1,2]/maximumDepth*100} else{
-      stationaryAscent<-NA
-    }
+
+   if (nrow(a)>1){
+     stationaryAscent<-a[1,2]/maximumDepth*100} else{
+       stationaryAscent<-NA
+     }
   
   #how much of max depth is first ascent?
   #a1/maximumDepth*100
   
   #put all in dataframe
-  sum_df<- data.frame(diveStartTime, descensionTime,descensionDistance, bottomTime, ascensionTime, ascensionDistance, maximumDepth, peakTime, peakHeight, numberOfPeaks, mode, numberAscentionChangepoints, numberDescensionChangepoints, depthAscentionChangepoint1, depthAscentionChangepoint2, bottomDistance, diveTime, totalChangepoints, exclude, flatAscentionChangepoint, descentAfterStatAscent, differenceBetweenFlatAscentPoints, maxDepthPropOfDive, numberOfReadingsFirstFifth, numberOfReadingsSecondFifth, numberOfReadingsThirdFifth, numberOfReadingsFourthFifth, numberOfReadingsFifthFifth, maxDepthUnderTenM, whichFifthTime, proportionMaxDepthAfterPeak, descentSD, restSD, ascentSD, peakSD, bottomSD, firstAscentionPointSixtyMaxDepth, ascentOffsetStraightTrajectory, ascentTrajectoryDirection, proportionDiveAscent, proportionDiveBottom, secondAscentionChangepointeighty, stationaryAscent,diveEndTime, maximumDepthUpper, maximumDepthLower)
+  sum_df<- data.frame(diveStartTime, bottomTime, maximumDepth, bottomDistance, diveTime, totalChangepoints, flatAscentionChangepoint, maxDepthUnderTenM, stationaryAscent,diveEndTime, maximumDepthUpper, maximumDepthLower,flatAscentionChangepoint)
   
   return(sum_df)
   
