@@ -1,0 +1,121 @@
+
+################################################################################
+#------------------------------------------------------------------------------#
+# Step 1. Load and format data #
+#------------------------------------------------------------------------------#
+################################################################################
+
+data<-read.csv( paste0(output_data, "allDiveSummariesSSM", ".csv"))
+colnames(data)[colnames(data) == "organismID.x"] ="organismID"
+
+data<- data %>%
+  dplyr::select(diveID,organismID,concatID,ccl, diveStartTime,bottomTime,maximumDepth,diveTime, surface_int,sst, mpm)
+
+data<-na.omit(data)
+
+#transform data accordingly
+data$maximumDepth<-log(data$maximumDepth)
+data$surface_int<-log(data$surface_int)
+
+#scale varaibles after transformations to normality
+# Using preProcess to scale the data
+scale_mapping <- preProcess(data[, c(6:9)], method = c('range'))  # preProcess creates a mapping for the chosen variables
+data<- predict(scale_mapping, data)  # we transform the data using predict() and the mapping
+#https://ourcodingclub.github.io/tutorials/data-scaling/#Scaling 
+
+################################################################################
+#------------------------------------------------------------------------------#
+# Step 2. Prepare HMM #
+#------------------------------------------------------------------------------#
+################################################################################
+
+
+#define deployments such that they are split (not continuous time series)
+finaltimes<-as.data.frame(table(data$organismID))
+x<-unique(data$organismID)
+split<-finaltimes %>%
+  slice(match(x, Var1))
+timestimes<-as.numeric(split$Freq)
+
+n_iter = 100 #minumum 100 iterations
+
+#pars for HMM
+model_combocomb = expand.grid("states" = 2:4, "aic" = NA) 
+#saved outputs combs#
+saved_modelscomb = list() # list to save models with
+
+set.seed(21)
+
+################################################################################
+#------------------------------------------------------------------------------#
+# Step 3. Run HMM #
+#------------------------------------------------------------------------------#
+################################################################################
+
+for(i in 1:nrow(model_combocomb)) {
+  
+  # for each model configuration, try many starting values and save the best across those
+  best_aic = 1.0e10
+  best_model = NULL
+  for(iter in 1:n_iter) {
+    mod <- depmix(list(
+      maximumDepth ~ 1,
+      bottomTime ~ 1,
+      diveTime ~ 1,
+      surface_int~1
+    ),
+    family = list(gaussian(), gaussian(), gaussian() ,gaussian()
+    ),
+    data = data, initdata = data, nstates = model_combocomb$states[i], ntimes = timestimes, transition=~ 1)
+    
+    
+    fm <- try(fit(mod, verbose = FALSE), silent=TRUE)
+    if(class(fm) != "try-error") {
+      
+      if(AIC(fm) < best_aic) {
+        best_model = fm
+        best_aic = AIC(fm)
+      }
+    }
+    
+  }
+  
+  if(class(best_model) != "try-error") {
+    model_combocomb$aic[i] = AIC(best_model)
+    #  model_combocomb$loglik[i] = c(logLik(best_model))
+  }
+  saved_modelscomb[[i]] = best_model
+}
+
+
+
+model_combocomb['Delta AIC'] = model_combocomb['aic']- min(model_combocomb['aic'])
+model_combocomb[order(model_combocomb$aic),]
+
+dAIC_file <- paste0(output_data, "dAIC.csv")
+
+bestHMM2state <- paste0(output_data, "HMM_2S.rds")
+bestHMM3state <- paste0(output_data, "HMM_3S.rds")
+bestHMM4state <- paste0(output_data, "HMM_4S.rds")
+
+write.csv(model_combocomb, dAIC_file)
+
+saveRDS(saved_modelscomb[[1]], "C:/Users/xcarrj/Desktop/laptop/tort/nocovMPM_2S.rds")
+saveRDS(saved_modelscomb[[2]], "C:/Users/xcarrj/Desktop/laptop/tort/nocovMPM_3S.rds")
+saveRDS(saved_modelscomb[[3]], "C:/Users/xcarrj/Desktop/laptop/tort/nocovMPM_4S.rds")
+
+################################################################################
+#------------------------------------------------------------------------------#
+# Step 4. Assign states to dives #
+#------------------------------------------------------------------------------#
+################################################################################
+hmm<-saved_modelscomb[[2]]
+states3 <- posterior(hmm)
+data$states3<-as.numeric(states3[,1])
+data$states3<-as.numeric(data$states3)
+dive_labs <- paste0(output_data, "dive_states.csv")
+write.csv(data, dive_labs)
+
+
+
+
