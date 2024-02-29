@@ -20,15 +20,10 @@ organismID <- metadata$ptt[i]
 ################################################################################
 proc_data<- read.csv(paste0(output_data, "final_forprocess_", organismID, ".csv"))
 
-##grep to add 00's to midnight
-proc_data$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",proc_data$date)] <- paste(
-  proc_data$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",proc_data$date)],"00:00:00")
-
-proc_data$date <- as.POSIXct(proc_data$date,format="%Y-%m-%d %H:%M:%S",tz="CET") ## Your dates need to be in 
+proc_data$date <- as.POSIXct(proc_data$date,origin="1970-01-01",tz="UTC")
 proc_data<-proc_data[order(proc_data$date),]
 
 #leave datetime and depth
-#proc_data <- proc_data[ -c(1) ]
 
 proc_data<-subset(proc_data, select = c(date,depth))
 
@@ -51,6 +46,17 @@ direc<-proc_dataPhase %>%
 #remove duplicates
 direc<-direc[!duplicated(direc), ]
 
+#take surface readings
+surfReads <- direc[is.na(direc$diveno),]
+
+surfReads$organismID<-organismID
+
+surfReads$date<-as.numeric(surfReads$date)
+
+#save for future ref.
+surface_complete_file <- paste0(output_data, "surfaceReadings_", organismID, ".csv")
+write.csv(surfReads, surface_complete_file)
+
 ################################################################################
 #==============================================================================#
 # Step 2. Compile final dives###
@@ -62,10 +68,7 @@ direc<-direc[!duplicated(direc), ]
 depthTempError_file <- paste0(output_data, "depthError", organismID, ".csv")
 tempData<-read.csv(depthTempError_file)
 
-tempData$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",tempData$date)] <- paste(
-  tempData$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",tempData$date)],"00:00:00")
-tempData$date <- as.POSIXct(tempData$date,format="%Y-%m-%d %H:%M:%S",tz="CET") ## Your dates need to be in 
-
+tempData$date <- as.POSIXct(tempData$date,origin="1970-01-01",tz="UTC") 
 
 compDives<-tempData %>% select(date, depthUpperError, depthLowerError)
 
@@ -111,7 +114,7 @@ dives_complete = do.call(what = rbind, args = dive_list)
 dives_complete<-dives_complete[order(dives_complete$date),]
 
 dives_complete$organismID<-organismID
-
+dives_complete$date<-as.numeric(dives_complete$date)
 dives_complete_file <- paste0(output_data, "processed_dives_", organismID, ".csv")
 write.csv(dives_complete, dives_complete_file)
 ################################################################################
@@ -150,9 +153,62 @@ dive_summaries$concatID<-paste0(organismID,"_",dive_summaries$diveID)
 dive_summaries<-surf.time(dive_summaries)
 colnames(dive_summaries)[colnames(dive_summaries) == "tim3"] ="surface_int"
 
+#########check if depthNA is within surface interval################
+
+diveEndTime = rep(NA,nrow(dive_summaries)-1)
+nextdiveStartTime= rep(NA,nrow(dive_summaries)-1)
+diveID= rep(NA,nrow(dive_summaries)-1)
+
+surfNA<-as.data.frame(cbind(diveEndTime,nextdiveStartTime,diveID))
+
+for(i in 1:nrow(dive_summaries)-1){
+  a = dive_summaries$diveEndTime[i]
+  b = dive_summaries$diveStartTime[i +1]
+  # 
+  # a = dive_summaries$diveStartTime[i]
+  # b = dive_summaries$diveEndTime[i - 1]
+  c= dive_summaries$diveID [i]
+  
+  surfNA[i,1]<-as.POSIXct(a,format="%Y-%m-%d %H:%M:%S",tz="UTC") 
+  surfNA[i,2]<-as.POSIXct(b,format="%Y-%m-%d %H:%M:%S",tz="UTC") 
+  surfNA[i,3]=c 
+  
+  
+}
+surfNA[,1]<-as.POSIXct(surfNA[,1], origin = "1970-01-01")
+surfNA[,2]<-as.POSIXct(surfNA[,2], origin = "1970-01-01")
+
+#depthNA[1,]<-as.POSIXct("2023-05-08 18:10:00", format="%Y-%m-%d %H:%M:%S")
+
+#make sure all in same timezones
+surfNA$diveEndTime<-force_tz(surfNA$diveEndTime, "UTC")
+surfNA$nextdiveStartTime<-force_tz(surfNA$nextdiveStartTime, "UTC")
+
+#depthNA is times with missing depths from first step
+depthNA$date<-force_tz(depthNA$date, "UTC")
+
+#find dives where depth NA's present
+df1<-  surfNA
+df2<- depthNA
+
+setDT(df1); setDT(df2)
+# initialise new column with "N"
+df1[, dateoccurs := "N"]
+
+#update join#
+hasNA<-  df1[df2, dateoccurs := "Y", on = .(diveEndTime <= date, nextdiveStartTime >= date)][]
+hasNA<-as.data.frame(hasNA)
+
+
+dive_summaries <- merge(dive_summaries, hasNA, by = "diveID", 
+                        all.x = TRUE) 
+
+dive_summaries<-subset(dive_summaries, select=-c(diveEndTime.y, nextdiveStartTime))
+colnames(dive_summaries)[colnames(dive_summaries) == "dateoccurs"] ="NaSurfaceInt"
 
 dive_summaries_file <- paste0(output_data, "dive_summarys_", organismID, ".csv")
 write.csv(dive_summaries, dive_summaries_file)
+
 
 #import depth temp errors
 depthTempError_file <- paste0(output_data, "depthError", organismID, ".csv")
@@ -193,12 +249,11 @@ mergedTTDRProc$aboveSST <- aboveSST(temp = mergedTTDRProc$temperature, temp.er =
 mergedTTDRProc$aboveSST<-na.locf(mergedTTDRProc$aboveSST,na.rm = FALSE)
 mergedTTDRProc = mergedTTDRProc[!duplicated(mergedTTDRProc$diveStartTime),]
 
-#nrow(mergedTTDRProc %>% filter (aboveSST== 1))
 names(dive_summaries)[names(dive_summaries) == "diveStartTime"] <- "date"
 
 finalDiveSummaries<-merge(dive_summaries, mergedTTDRProc, by="date") 
 
-finalDiveSummaries<-finalDiveSummaries[,c(1:51, 62:68)]
+finalDiveSummaries<-finalDiveSummaries[,c(1:21, 30:36)]
 names(dive_summaries)[names(dive_summaries) == "date"] <- "diveStartTime"
 dive_summariesSST_file <- paste0(output_data, "dive_summarysSST_", organismID, ".csv")
 write.csv(finalDiveSummaries, dive_summariesSST_file)
