@@ -69,7 +69,7 @@ tdrdata <- createTDR(time = ttdr$date, depth = ttdr$depth,
                      file = "ttdr.csv")  # path to the file
 
 #change this number for desired dive threshold
-customDive_threshold=8.00
+customDive_threshold=3.00
 
 
 ## Calibrate with ZOC using filter method.
@@ -100,7 +100,7 @@ ttdr$temperatureError <- temp_error(ttdr$trange)
 # Temperature regional range test (Mediterranean Argo)
 # 1: good data; 4: bad data
 ttdr$temperatureQC1 <- trange_test(ttdr$temperature, ttdr$temperatureError, tmin=10, tmax=40)
-
+ttdr$date<-as.numeric(ttdr$date)
 depthTempError_file <- paste0(output_data, "depthError", organismID, ".csv")
 write.csv(ttdr, depthTempError_file)
 
@@ -109,6 +109,8 @@ write.csv(ttdr, depthTempError_file)
 # Step 3. Identify phases #
 #------------------------------------------------------------------------------#
 ################################################################################
+ttdr$date <- as.POSIXct(ttdr$date,origin="1970-01-01",tz="UTC")
+  
 #specify columns for code
 ttdr<-subset(ttdr, select=c(date,depth,drange, temperature,trange,depth_adj,depth_offset))
 
@@ -241,6 +243,7 @@ colnames(ascDescFin_short)[colnames(ascDescFin_short) == "diveno_2"] ="diveno"
 ascDescFin_short<-ascDescFin_short[!duplicated(ascDescFin_short), ]
 ascDescFin_short
 
+ascDescFin_short$date<-as.numeric(ascDescFin_short$date)
 #write CSV of preprocessed data!!
 #write.csv(ascDescFin_short, "C:/Users/user/Desktop/tort/finalrun_7mthresh/preprocessed_dives_151935.csv")
 ascDescFin_short_file <- paste0(output_data, "preprocessed_dives_", organismID, ".csv")
@@ -253,12 +256,8 @@ write.csv(ascDescFin_short, ascDescFin_short_file)
 ################################################################################
 ascDescFin_short<- read.csv(ascDescFin_short_file)
 
-##grep to add 00's to midnight
-ascDescFin_short$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",ascDescFin_short$date)] <- paste(
-  ascDescFin_short$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",ascDescFin_short$date)],"00:00:00")
-
 #make sure datetime is posixct
-ascDescFin_short$date <- as.POSIXct(ascDescFin_short$date,format="%Y-%m-%d %H:%M:%S",tz="CET")
+ascDescFin_short$date <- as.POSIXct(ascDescFin_short$date,origin="1970-01-01",tz="UTC")
 
 #new df for dives
 dataDive<-ascDescFin_short %>%
@@ -410,7 +409,7 @@ diveSurfBind <- rbind(splitBind, dataSurf)
 diveSurfBind_ord<-diveSurfBind[order(diveSurfBind$date),]
 
 diveSurfBind_ord<-diveSurfBind_ord[!duplicated(diveSurfBind_ord), ]
-
+diveSurfBind_ord$date<-as.numeric(diveSurfBind_ord$date)
 diveSurfBind_ord_file <- paste0(output_data, "split_dive_", organismID, ".csv")
 write.csv(diveSurfBind_ord, diveSurfBind_ord_file)
 
@@ -423,11 +422,7 @@ write.csv(diveSurfBind_ord, diveSurfBind_ord_file)
 
 diveSurfBind_ord<- read.csv(diveSurfBind_ord_file)
 
-##grep to add 00's to midnight
-diveSurfBind_ord$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",diveSurfBind_ord$date)] <- paste(
-  diveSurfBind_ord$date[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",diveSurfBind_ord$date)],"00:00:00")
-
-diveSurfBind_ord$date <- as.POSIXct(diveSurfBind_ord$date,format="%Y-%m-%d %H:%M:%S",tz="CET") ## Your dates need to be in 
+diveSurfBind_ord$date <- as.POSIXct(diveSurfBind_ord$date,origin="1970-01-01",tz="UTC") ## Your dates need to be in 
 
 diveSurfBind_ord<- diveSurfBind_ord %>% drop_na(date)
 #colnames(diveSurfBind_ord)
@@ -556,7 +551,7 @@ final_dives<-diveSurfBind2.1[!duplicated(diveSurfBind2.1), ]
   diveSurfBind2.1<-diveSurfBind2[order(diveSurfBind2$date),]
  final_dives<-diveSurfBind2.1[!duplicated(diveSurfBind2.1), ]
 }
-  
+final_dives$date<- as.numeric(final_dives$date)
 final_dives_file <- paste0(output_data, "final_forprocess_", organismID, ".csv")
 write.csv(final_dives, final_dives_file)
 
