@@ -1,0 +1,53 @@
+################################################################################
+#------------------------------------------------------------------------------#
+# Step 1. Label dives from original dataset #
+#------------------------------------------------------------------------------#
+################################################################################
+
+
+tot_data<-read.csv(paste0(output_data, "dive_states.csv"))
+
+tot_data$diveStartTime <- as.POSIXct(tot_data$diveStartTime,format="%Y-%m-%d %H:%M:%S",tz="CET")
+
+tot_divsum<-read.csv(paste0(output_data, "allDiveSummariesSSM", ".csv"))
+
+tot_divsum$diveStartTime <-as.POSIXct(tot_divsum$diveStartTime ,format="%Y-%m-%d %H:%M:%S ",tz="CET")
+
+colnames(tot_data)[colnames(tot_data) == "organismID.x"] ="organismID"
+colnames(tot_divsum)[colnames(tot_divsum) == "organismID.x"] ="organismID"
+
+ids<-names(table(tot_data$organismID))
+
+for(i in  1:length(ids)){
+  
+  tort<-filter(tot_data, organismID == ids[i])
+  diveSum<-filter(tot_divsum, organismID == ids[i])
+
+  tort$divetimedate<-tort$diveStartTime
+  diveSum$divetimedate<-diveSum$diveStartTime
+
+  #produces nearest times
+  library(data.table) # v1.9.6+
+  newdf<-setDT(diveSum)[tort, roll = "nearest", on = "divetimedate"]
+  fin<-as.data.frame(newdf)
+  assign(paste("diveMatch",ids[i],sep = "_"), t<-fin)
+  print(paste("diveMatch",ids[i],sep = "_"))
+}
+
+depths = mget(ls(pattern = "diveMatch_"))
+depths_bind = do.call(what = rbind, args = depths)
+depths_bind<-depths_bind[order(depths_bind$diveStartTime),]
+
+data<-depths_bind[,c(4:68,81,82)]
+
+fin_diveSumLabs <- paste0(output_data, "fin_diveSumLabs.csv")
+
+write.csv(data, fin_diveSumLabs)
+
+################################################################################
+#------------------------------------------------------------------------------#
+# Step 2. Label dives from original dataset #
+#------------------------------------------------------------------------------#
+################################################################################
+depths_bind<-read.csv(fin_diveSumLabs)
+
