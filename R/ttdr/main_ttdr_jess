@@ -7,8 +7,8 @@ source("fun/fun__process_ttdrData_diveMetrics)
 #---------------------------------------------------------------
 # 1. Set parameters for processing
 #---------------------------------------------------------------
-#change this number for desired dive threshold, for this paper we use 8.00m
-customDive_threshold=8.00
+#change this number for desired dive threshold, for this paper we use 3.00m
+customDive_threshold=3.00
 
 #---------------------------------------------------------------
 # Processing TTDR data
@@ -20,3 +20,16 @@ source("R/ttdr/scr/01_process_ttdrData.R")  # process TDR
 source("R/ttdr/scr/02_diveMetrics.R")  # Extract final dives and metrics
 
 
+JESS TO FIX SO EACH STEP LOOPS OVER ONE TURTLE, NOT EACH LOOPS MULTIPLE TIMES
+
+
+
+#Prepare data for models, add in SSM metrics
+source("R/ttdr/scr/03_prepareTTDR.R")  
+
+
+#Run HMM
+source("R/ttdr/scr/04_runHMM.R")
+
+#Visualise HMM
+source("R/ttdr/scr/*****.R")
