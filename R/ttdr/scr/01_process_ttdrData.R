@@ -554,9 +554,6 @@ final_dives<-diveSurfBind2.1[!duplicated(diveSurfBind2.1), ]
 final_dives$date<- as.numeric(final_dives$date)
 final_dives_file <- paste0(output_data, "final_forprocess_", organismID, ".csv")
 write.csv(final_dives, final_dives_file)
-
-#clean environment from previous loop iteration
-rm(list=setdiff(ls(), c("output_data","input_data","metadata", "i")))
 }
 ################################## Finish loops#################################
 beep()
