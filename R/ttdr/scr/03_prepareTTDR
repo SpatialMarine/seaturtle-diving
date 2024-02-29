@@ -1,0 +1,97 @@
+################################################################################
+###----------------------------------------------------------------------------#
+### Step 1.  Load and bind all files together for SSM and HMM input #
+###----------------------------------------------------------------------------#
+################################################################################
+files<-list.files(path=output_data, pattern="dive_summarysSST_")
+tables <- lapply(paste0(output_data,files), read.csv, header = TRUE)
+combined.df <- do.call(rbind , tables)
+all_diveSummaries_file <- paste0(output_data, "allDiveSummaries", ".csv")
+write.csv(combined.df, all_diveSummaries_file)
+
+
+combined.df_short<-combined.df[,c(2,3,4,5,6,7,8,13,17,18,33,35,7,34,46,47,48,49,50)]
+colnames(combined.df_short)
+
+all_diveSummaries_file_short <- paste0(output_data, "allDiveSummaries_short", ".csv")
+write.csv(combined.df_short, all_diveSummaries_file_short)
+
+#also bind raw processed depths for visualisation
+files<-list.files(path=output_data, pattern="processed_dives_")
+files<-grep(files, pattern='pre', invert=TRUE, value=TRUE)
+tables <- lapply(paste0(output_data,files), read.csv, header = TRUE)
+combined.df <- do.call(rbind , tables)
+all_diveDepths_file <- paste0(output_data, "allDiveDepths", ".csv")
+write.csv(combined.df, all_diveDepths_file)
+
+for (i in 1:nrow(metadata)){
+
+  organismID <- metadata$ptt[i]
+  
+  print(organismID)
+  dive_file<-paste0(output_data,"dive_summarysSST_", organismID, ".csv")  
+  
+  ttdr<- read.csv(dive_file)
+  
+  #filter dives for HMM
+  #remove dives where: 1) occur wihtin first 24hrs of release, 2)surface interval has NA's, 3)maximum depth over 10m
+  
+  ttdr <- filter(ttdr, maximumDepth > 10)
+  ttdr <- filter(ttdr, first24Hrs != "flag")
+  ttdr <- filter(ttdr, NaSurfaceInt == "N")
+  
+  names(ttdr)[names(ttdr) == "date"] <- "diveStartTime"
+  loc_file <- paste0(location_data, "/", organismID, "_L2_loc.csv")
+  loc_filt <- read.csv(loc_file)
+  loc_filt$time <- parse_date_time(loc_filt$time, "Ymd HMS") # parse time
+
+  
+  
+  ##grep to add 00's to midnight if dive starts at midnight.
+  ttdr$diveStartTime[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",ttdr$diveStartTime)] <- paste(
+    ttdr$diveStartTime[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",ttdr$diveStartTime)],"00:00:00")
+  
+  ttdr$time <- parse_date_time(ttdr$diveStartTime, "Ymd HMS") # parse time
+  
+  ttdr = ttdr[!duplicated(ttdr$time),]
+  
+  
+  ### Interpolate -----------------------------------------
+  
+  # No extrapolation is performed. So check that time stamps in series are within time domain of loc
+  ttdr <- dplyr::filter(ttdr, time >= min(loc_filt$time) & time <= max(loc_filt$time))
+  
+  # convert location data to move class
+  loc_filt_move <- move(x=loc_filt$longitude, y=loc_filt$latitude, time=loc_filt$time, data=loc_filt,
+                        proj=CRS("+proj=longlat +ellps=WGS84"), animal=loc_filt$organismID)
+  
+  # linear interpolation
+  lint <- interpolateTime(loc_filt_move, time = ttdr$time, spaceMethod = "greatcircle")
+  
+  # incorporate coordinates to TTDR data.frame
+  ttdr$longitude <- lint@coords[,1]
+  ttdr$latitude <- lint@coords[,2]
+  
+  # Interpolate movement persistence metric to TTDR data
+  ttdr$mpm <- akima::aspline(x=(as.numeric(loc_filt$time)), y=(loc_filt$g), xout=(as.numeric(ttdr$time)))$y
+  
+  ttdr$ccl<-metadata$organismSize1[i]
+  
+  diveMetricsSSM_file <- paste0(output_data, "dive_summarysSSM_", organismID, ".csv")
+  write.csv(ttdr, diveMetricsSSM_file)
+}
+  
+#now combine into one df for HMM
+
+files<-list.files(path=output_data, pattern="dive_summarysSSM_")
+tables <- lapply(paste0(output_data,files), read.csv, header = TRUE)
+combined.df <- do.call(rbind , tables)
+all_diveSummaries_file <- paste0(output_data, "allDiveSummariesSSM", ".csv")
+write.csv(combined.df, all_diveSummaries_file)
+
+
+df.short<- combined.df %>%
+  dplyr::select(diveID,organismID.x,concatID,ccl, diveStartTime,bottomTime,maximumDepth,bottomDistance,diveTime, surface_int,sst, mpm)
+
+all_diveSummaries_file <- paste0(output_data, "HMM_input", ".csv")
+write.csv(df.short, all_diveSummaries_file)
