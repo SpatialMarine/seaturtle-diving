@@ -14,10 +14,7 @@ customDive_threshold=3.00
 # Processing TTDR data
 #---------------------------------------------------------------
 # TDR data processing
-source("R/ttdr/scr/01_process_ttdrData.R")  # process TDR
-
-#Extract dive metrics
-source("R/ttdr/scr/02_diveMetrics.R")  # Extract final dives and metrics
+source("R/ttdr/scr/01_01_ProcessLowResTTDR.R")  # process TDR
 
 #---------------------------------------------------------------
 # Format TTDR data, add SMM metrics
