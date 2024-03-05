@@ -48,6 +48,11 @@ ttdr <- ttdr %>%
   filter(!is.na(depth))
 
 ttdr<- ttdr %>% filter(row_number() <= last(which(!is.na(depth))))
+  
+depthNA$date<-as.numeric(depthNA$date)
+
+depthNA_file <- paste0(output_data, "depthNA", organismID, ".csv")
+write.csv(depthNA, depthNA_file)
 ################################################################################
 #------------------------------------------------------------------------------#
 # Step 2. Zero offset correction #
