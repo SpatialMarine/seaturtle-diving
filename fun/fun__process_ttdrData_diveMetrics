@@ -1032,72 +1032,61 @@ surf.time<-function(dataframe){
 # getSST     Generate SST product
 #--------------------------------------------------------------------------------
 getSST <- function(data){
-  # This function fixed several problems found on the initial test.
-  # 1) I found high temperature values for some points. This is mainly because I initially consider
-  #    all dives and postdives. I have sorted this out by:
-  #    a) filtering dives >10 minutes long (ie. at least 2 registers per dive).
-  #    b) filtering out dives <5 m deep (use lower error estimate). shallow dives could be affected)
-  # 2) There were low temperature values for two reasons:
-  #    a) Some postdives present without depth data. I filtered those out
-  #    b) First register of postdive very similar to previous underwater register. I selected the second register per postdive. 
-  
-  
-  data$surf_int<- NA
-  
-  j<-2 #j is a counter
-  data$surf_int[1] <- 1 #label the first row as 1 so that it is not NA
-  
-  #loop through and label first surface after dive
-  for (i in 2:nrow(data)){      #starts at 2
-    if (is.na(data$diveno[i]) & !is.na(data$diveno[i-1])){
-      data$surf_int[i] <- j
-      j<-j+1
-    } 
-    print(nrow(data)-i)
+    # This function fixed several problems found on the initial test.
+    # 1) I found high temperature values for some points. This is mainly because I initially consider
+    #    all dives and postdives. I have sorted this out by:
+    #    a) filtering dives >10 minutes long (ie. at least 2 registers per dive).
+    #    b) filtering out dives <5 m deep (use lower error estimate). shallow dives could be affected)
+    # 2) There were low temperature values for two reasons:
+    #    a) Some postdives present without depth data. I filtered those out
+    #    b) First register of postdive very similar to previous underwater register. I selected the second register per postdive. 
+    
+    
+    data$surf_int<- NA
+    
+    j<-2 #j is a counter
+    data$surf_int[1] <- 1 #label the first row as 1 so that it is not NA
+    
+    #loop through and label first surface after dive
+    for (i in 2:nrow(data)){      #starts at 2
+      if (is.na(data$diveno[i]) & !is.na(data$diveno[i-1])){
+        data$surf_int[i] <- j
+        j<-j+1
+      } 
+      print(nrow(data)-i)
+    }
+    
+    data
+    
+    #nalocf for all surface intervals
+    data$surf_int<-na.locf(data$surf_int)
+    
+    # make sure only surface phases numbered
+    data<-data %>%
+      mutate(surf_intID = case_when(!is.na(diveno) ~ NA,
+                                    TRUE ~ surf_int))
+    
+    ## First, select dives with more than 10 minutes of duration.
+    
+    dive10<-dive_summaries %>%
+      filter(diveTime>600 & maximumDepth> 5)
+    
+    
+    ## Indetify second time stamp of a postdive
+    sst <- data %>%
+      group_by(surf_intID) %>%
+      arrange(date) %>%
+      slice(2) %>%  # take the second register from the postdive
+      ungroup
+    
+    
+    
+    sst <- filter(sst, surf_intID > 3,  # remove first 3 dives
+                  surf_intID %in% dive10$diveID,
+                  temperatureQC1 == 1,  # select temperature data within range
+                  !is.na(depth.x)) # select data with depth information
+    return(sst)
   }
-  
-  data
-  
-  #nalocf for all surface intervals
-  data$surf_int<-na.locf(data$surf_int)
-  
-  # make sure only surface phases numbered
-  data<-data %>%
-    mutate(surf_intID = case_when(!is.na(diveno) ~ NA,
-                                  TRUE ~ surf_int))
-  
-  ## First, select dives with more than 10 minutes of duration.
-  
-  dive10<-dive_summaries %>%
-    filter(diveTime>600 & maximumDepth> 5)
-  
-  
-  ## Indetify second time stamp of a postdive
-  sst <- data %>%
-    group_by(surf_intID) %>%
-    arrange(date) %>%
-    slice(2) %>%  # take the second register from the postdive
-    ungroup
-  
-  
-  
-  sst <- filter(sst, surf_intID > 3,  # remove first 3 dives
-                surf_intID %in% dive10$diveID,
-                temperatureQC1 == 1,  # select temperature data within range
-                !is.na(depth.x)) # select data with depth information
-  
-  
-  
-  
-  
-  # 
-  # 
-  # sst <- filter(sst, surf_intID > 3,  # remove first 3 dives
-  #               surf_intID %in% dives_complete$diveno,
-  #               temperatureQC1 == 1,  # select temperature data within range
-  #               !is.na(depth.x)) # select data with depth information
-  return(sst)
-}
 #--------------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------------
