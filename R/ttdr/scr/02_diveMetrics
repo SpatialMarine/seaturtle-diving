@@ -184,8 +184,11 @@ surfNA[,2]<-as.POSIXct(surfNA[,2], origin = "1970-01-01")
 surfNA$diveEndTime<-force_tz(surfNA$diveEndTime, "UTC")
 surfNA$nextdiveStartTime<-force_tz(surfNA$nextdiveStartTime, "UTC")
 
+depthNA<- read.csv(paste0(output_data, "depthNA", organismID, ".csv"))
+
+
 #depthNA is times with missing depths from first step
-depthNA$date<-force_tz(depthNA$date, "UTC")
+depthNA$date <- as.POSIXct(depthNA$date,origin="1970-01-01",tz="UTC")
 
 #find dives where depth NA's present
 df1<-  surfNA
