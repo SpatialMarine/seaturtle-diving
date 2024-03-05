@@ -9,13 +9,6 @@ combined.df <- do.call(rbind , tables)
 all_diveSummaries_file <- paste0(output_data, "allDiveSummaries", ".csv")
 write.csv(combined.df, all_diveSummaries_file)
 
-
-combined.df_short<-combined.df[,c(2,3,4,5,6,7,8,13,17,18,33,35,7,34,46,47,48,49,50)]
-colnames(combined.df_short)
-
-all_diveSummaries_file_short <- paste0(output_data, "allDiveSummaries_short", ".csv")
-write.csv(combined.df_short, all_diveSummaries_file_short)
-
 #also bind raw processed depths for visualisation
 files<-list.files(path=output_data, pattern="processed_dives_")
 files<-grep(files, pattern='pre', invert=TRUE, value=TRUE)
