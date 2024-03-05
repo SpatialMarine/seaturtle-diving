@@ -311,7 +311,9 @@ interval_listbind$start<-force_tz(interval_listbind$start, "UTC")
 interval_listbind$fin<-force_tz(interval_listbind$fin, "UTC")
 
 #depthNA is times with missing depths from first step
-depthNA$date<-force_tz(depthNA$date, "UTC")
+#depthNA$date<-force_tz(depthNA$date, "UTC")
+depthNA$date$date <- as.POSIXct(depthNA$date$date,origin="1970-01-01",tz="UTC")
+  
 
 #find dives where depth NA's present
 df1<-  interval_listbind
