@@ -339,7 +339,9 @@ phases<-function(dataframe){
   names(dataframe4)[2] <- 'depth'
   names(dataframe4)[3] <- 'phase'
   names(dataframe4)[4] <- 'thresh'
-  
+   dataframe4<- as.data.frame(dataframe4 %>% 
+                  group_by(diveno) %>% 
+                  filter(n()>= 3))
   return(dataframe4)
   
 }
@@ -717,6 +719,63 @@ split.hangouts<- function(dataframe){
 #-------------------------------------------------------------------------------
 #changed from 60s to 1 s here too
 dive_summary<-function(dataframe){
+if(length(which(duplicated(dataframe$ph3)==TRUE))>=nrow(dataframe)-1){
+    maximumDepth<-dataframe$depth[which.max(dataframe$depth)]
+    
+    descensionTime <- NA
+    descensionDistance <- NA
+    bottomTime<- NA
+    ascensionTime<- NA
+    ascensionDistance<- NA
+    peakTime<- NA
+    peakHeight<- NA
+    numberOfPeaks<- NA
+    mode<- NA
+    numberAscentionChangepoints<- NA
+    numberDescensionChangepoints<- NA
+    depthAscentionChangepoint1<- NA
+    depthAscentionChangepoint2<- NA
+    bottomDistance<- NA
+    totalChangepoints<- NA
+    flatAscentionChangepoint<- NA
+    descentAfterStatAscent<- NA
+    differenceBetweenFlatAscentPoints<- NA
+    maxDepthPropOfDive<- NA
+    numberOfReadingsFirstFifth<- NA
+    numberOfReadingsSecondFifth<- NA
+    numberOfReadingsThirdFifth<- NA
+    numberOfReadingsFourthFifth<- NA
+   numberOfReadingsFifthFifth<- NA
+   maxDepthUnderTenM<- NA
+   whichFifthTime<- NA
+   proportionMaxDepthAfterPeak<- NA
+   descentSD<- NA
+   restSD<- NA
+   ascentSD<- NA
+   peakSD<- NA
+   bottomSD<- NA
+   firstAscentionPointSixtyMaxDepth<- NA
+   ascentOffsetStraightTrajectory<- NA
+   ascentTrajectoryDirection<- NA
+   proportionDiveAscent<- NA
+   proportionDiveBottom<- NA
+   secondAscentionChangepointeighty<- NA
+   stationaryAscent<- NA
+exclude="Y"
+   diveStartTime<-dataframe[1,1]
+   
+   #total dive time
+   divefin<- rev(dataframe[,1])
+   diveEndTime<-divefin[1]
+   diveTime<-as.numeric(diveEndTime-diveStartTime)*60
+   
+   
+   sum_df2<- data.frame(diveStartTime, descensionTime,descensionDistance, bottomTime, ascensionTime, ascensionDistance, maximumDepth, peakTime, peakHeight, numberOfPeaks, mode, numberAscentionChangepoints, numberDescensionChangepoints, depthAscentionChangepoint1, depthAscentionChangepoint2, bottomDistance, diveTime, totalChangepoints, exclude, flatAscentionChangepoint, descentAfterStatAscent, differenceBetweenFlatAscentPoints, maxDepthPropOfDive, numberOfReadingsFirstFifth, numberOfReadingsSecondFifth, numberOfReadingsThirdFifth, numberOfReadingsFourthFifth, numberOfReadingsFifthFifth, maxDepthUnderTenM, whichFifthTime, proportionMaxDepthAfterPeak, descentSD, restSD, ascentSD, peakSD, bottomSD, firstAscentionPointSixtyMaxDepth, ascentOffsetStraightTrajectory, ascentTrajectoryDirection, proportionDiveAscent, proportionDiveBottom, secondAscentionChangepointeighty, stationaryAscent,diveEndTime)
+   
+    
+    return(sum_df2)
+      }
+if(nrow(dataframe)>= 3){
   #descent time
   bstart<-which(dataframe$ph3=='bottom')
   bstart<-bstart[1]
