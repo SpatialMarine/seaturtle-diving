@@ -437,7 +437,7 @@
   divNum<-as.numeric(lastDive[1])
   
   #print names of all dives
-  names<-sprintf("dive%d", 1:divNum) 
+  names<-sprintf("dive%s", names(data_sep)) 
   
   split_names <- as.character(names)
   
@@ -585,7 +585,7 @@
   divNum<-as.numeric(lastDive[1])
   
   #print names of all dives
-  names<-sprintf("dive%d", 1:divNum) 
+  names<-sprintf("dive%s", names(data_sep)) 
   
   split_names <- as.character(names)
   
