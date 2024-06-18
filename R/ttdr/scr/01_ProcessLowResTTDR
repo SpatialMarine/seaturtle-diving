@@ -10,7 +10,7 @@
 # 6.  Prepare data for manipulation 
 # 7. Remove dives if NA's fall within dive intervals
 # 8. Remove dives if gap in transmission 
-# 9. Split dives if turtle can cross 5m threshold based on ascent speed
+# 9. Split dives if turtle can cross threshold based on ascent speed
 #10. Relabel new processed data
 #11. if transmission stops during the last dive then remove
 #12. Split 'hangouts' if possible for turtle the reach surface and return to next reading
