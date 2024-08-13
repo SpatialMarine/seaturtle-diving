@@ -1,0 +1,393 @@
+rm(list=ls())
+
+library(depmixS4)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(caret)
+library(egg)
+library(grid)
+
+depths_bind<-read.csv("dive_summariesLabStates060224_FIN1304.csv")
+
+toplot<-subset(depths_bind, select = c(organismID,diveID, states3, states4,states5))
+
+
+#randomly select n dives/ state for plotting
+set.seed(9)
+toplot2 <- toplot %>% group_by(states4) %>% slice_sample(n=200)
+
+#read raw TDR data
+tot_dives<-read.csv("C:/Users/xcarrj/Desktop/laptop/tort/output/allDiveDepths.csv")
+
+#label each dataframe concatenated organsimID and dive number
+tot_dives$newid<-paste0(tot_dives$organismID,"_",tot_dives$diveno)
+
+toplot2$newid<-paste0(toplot2$organismID,"_",toplot2$diveID)
+
+
+#merge dataframes to include state information
+mergedf<-merge(toplot2, tot_dives, by= "newid")
+
+#subset randomly selected dives
+subDives<-subset(mergedf, newid %in% toplot2$newid)
+
+
+subDives<-subDives[order(subDives$X.1),]
+
+
+subDives$date <- as.POSIXct(subDives$date,format="%Y-%m-%d %H:%M:%S",tz="CET")
+
+
+#make sure TDR readings are in correct order
+subDives2<-subDives %>%
+  group_by((newid)) %>%
+  mutate(numbering= row_number())
+
+
+df2 <- subDives2[order(subDives2$X.1),]
+
+subDives2<-as.data.frame(subDives2)
+
+
+#flag start of each dive
+subDives2<-subDives2 %>%
+  mutate(t = case_when(numbering == 1 ~ '0',
+                       TRUE ~ ''))
+
+##find difference between each TDR reading in secs to plot
+subDives3<-subDives2 %>%
+  group_by(newid) %>%
+  mutate(idletime = difftime(date, date[1], units = "sec"))
+as.data.frame(subDives3)
+
+subDives3$idletime<-as.numeric(subDives3$idletime)
+
+
+#use this function to cleanup graphs
+
+cleanup=theme(panel.grid.major = element_blank(),
+              panel.grid.minor = element_blank(),
+              panel.background=element_blank(),
+              axis.line=element_line(color = "black"))
+
+
+names <- c(
+  `1` = "State 1",
+  `2` = "State 2",
+  `3` = "State 3",
+  `4` = "State 4"
+)
+
+
+#plot dives for each states in facets
+
+ggplot(subDives3, aes(x=idletime, y=-depth,color=as.factor(subDives3$states4)))+
+  geom_line(aes(group=as.factor(diveID)))+
+  facet_grid(~ states4,labeller = as_labeller(names))+
+  theme(legend.position="none")+
+  xlab("Time (Seconds)")+
+  ylab("Depth")+
+  scale_colour_manual(name = "State", values=c("#ca7dcc","#E69F00","#56B4E9", "coral"))+
+theme_article()+
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14,face="bold"),strip.text.x = element_text(size=14,face="bold"),panel.spacing = unit(2, "lines"))
+
+#now plot timeseries of dives coloured for each state, like fig. 4 in tenneson et al., 
+
+
+table(depths_bind$organismID)
+
+depths_bind_plot<- depths_bind%>% filter(organismID=="235396") %>%
+  select(organismID,diveID,states4)
+
+tot_dives_plot<- tot_dives%>% filter(organismID=="235396") %>%
+  select(organismID,diveno,date,depth)
+
+#label each dataframe concatenated organsimID and dive number
+tot_dives_plot$newid<-paste0(tot_dives_plot$organismID,"_",tot_dives_plot$diveno)
+
+depths_bind_plot$newid<-paste0(depths_bind_plot$organismID,"_",depths_bind_plot$diveID)
+#merge dataframes to include state information
+divegram<-merge(depths_bind_plot, tot_dives_plot, by= "newid")
+
+divegram$date <- as.POSIXct(divegram$date,format="%Y-%m-%d %H:%M:%S",tz="CET")
+divegram<-divegram[order(divegram$date),]
+
+divegram[which(divegram$states4=="1"),]$states4 <-"s1"
+divegram[which(divegram$states4=="2"),]$states4 <-"s2"
+divegram[which(divegram$states4=="3"),]$states4 <-"s3"
+divegram[which(divegram$states4=="4"),]$states4 <-"s4"
+
+
+data_wide <- spread(divegram, states4,depth)
+data_wide
+
+
+ggplot(data_wide, aes(x=date))+
+  #Subset data for black line, i.e., shared line
+  geom_line(aes(y = -s1), data = data_wide,
+            color = "#ca7dcc") + 
+  geom_line(aes(y = -s2), data = data_wide,
+            color = "#E69F00") + 
+  geom_line(aes(y = -s3), data = data_wide,
+            color = "#56B4E9") + 
+  geom_line(aes(y = -s4), data = data_wide,
+            color = "coral")+
+  ylim(-divegram$depth[which.max(divegram$depth)], -3)+
+  xlab("Date") +
+  ylab("Depth (M)")+
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%m/%Y")+
+  theme_article()+
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14,face="bold"))+
+  scale_colour_manual(name = "State", values=c("#ca7dcc","#E69F00","#56B4E9", "coral"))
+  
+  
+  
+  
+###time budget plots##
+  
+#####plot % time per dive###
+
+depths_bind$timeState<-depths_bind$diveTime+depths_bind$surface_int
+
+freq.df<-as.data.frame(table(depths_bind$organismID, depths_bind$states4))
+
+freq.df <- freq.df %>% 
+  rename("id"="Var1",
+         "state"= "Var2")
+
+
+freq.df2<-as.data.frame(freq.df %>%
+                          group_by(id) %>% #id
+                          mutate(tot_dives =sum(Freq)) %>% 
+                          ungroup)
+
+freq.df2<-as.data.frame(freq.df2 %>%
+                          group_by(id) %>% 
+                          mutate(dives_not = tot_dives-Freq))
+
+
+freq.df2<-as.data.frame(freq.df2 %>%
+                          group_by(id) %>% #id
+                          mutate(prop =  Freq/sum(Freq)) %>% 
+                          ungroup)
+
+
+freq.df2 <- freq.df2 %>% 
+  rename("dives_performed"="Freq")
+
+
+
+ggplot(freq.df2,# Draw barplot with grouping & stacking
+       aes(x =id ,
+           y = prop,
+           fill = state)) + 
+  geom_bar(stat = "identity",
+           position = "stack") + 
+  labs(fill = "State")+
+  xlab("Organism ID")+
+  ylab("Proportion of Dives")+
+  scale_fill_manual(values=c("#ca7dcc", "#E69F00","#56B4E9","coral"))+
+  theme_article()+
+  theme(axis.text=element_text(size=12, angle=90),
+        axis.title=element_text(size=14,face="bold"),legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 14))
+
+
+
+##to match teneson papwer
+ggplot(freq.df2,# Draw barplot with grouping & stacking
+       aes(x =state ,
+           y = prop,
+           fill = state)) + 
+  geom_boxplot() + 
+  labs(fill = "State")+
+  xlab("State")+
+  ylab("Proportion of Total Dives")+
+  scale_fill_manual(values=c("#ca7dcc", "#E69F00","#56B4E9","coral"))+
+  theme_article()+
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14,face="bold"),legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 14))
+
+
+#now plot proportion of time per state for each turtle##
+
+
+freq.df<- depths_bind %>% select(organismID,timeState,states4)
+
+freq.df2<-as.data.frame(freq.df %>%
+  group_by(organismID, states4) %>%
+  summarise(time = sum(timeState)))
+
+freq.df2<-as.data.frame(freq.df2 %>%
+                group_by(organismID) %>% #id
+                mutate(tot_time =sum(time)) %>% 
+                ungroup)
+
+
+freq.df2<-as.data.frame(freq.df2 %>%
+                          group_by(organismID,states4) %>% #id
+                          mutate(prop =  time /sum(tot_time)) %>% 
+                          ungroup)
+
+
+ggplot(freq.df2,# Draw barplot with grouping & stacking
+       aes(x =as.factor(organismID),
+           y = prop,
+           fill = as.factor(states4))) + 
+  geom_bar(stat = "identity",
+           position = "stack") + 
+  labs(fill = "State")+
+  xlab("Organism ID")+
+  ylab("Proportion of Time in State")+
+  theme_article()+
+  scale_fill_manual(values=c("#ca7dcc", "#E69F00","#56B4E9","coral"))+
+  theme_article()+
+  theme(axis.text=element_text(size=12, angle=90),
+        axis.title=element_text(size=14,face="bold"),legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 14))
+
+
+
+###plot move persistance histograms#####
+
+sum<-subset(depths_bind, select = c(maximumDepth, bottomTime,diveTime, surface_int, mpm, states4))
+sum$states4<-as.factor(sum$states4)
+
+facet_names <- list(
+  '1'="State 1",
+  '2'="State 2",
+  '3'="State 3",
+  '4'="State 4"
+)
+
+
+name_labeller <- function(variable,value){
+  return(facet_names[value])
+}
+
+sum %>%
+  ggplot(aes(x=mpm, fill=states4)) +
+  geom_histogram( color="#e9ecef", position = 'identity') +
+  scale_fill_manual(values=c("#ca7dcc","#E69F00","#56B4E9", "coral"),guide="none") +
+  #labs(fill="")+
+  theme(legend.position = "none")+
+  facet_wrap(~states4, labeller=name_labeller)+
+  theme_classic()+
+  xlab("Move Persistence") +
+  ylab("Count")+
+  theme_article()+
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14,face="bold"),
+        strip.text.x = element_text(size=14,face="bold"))
+
+names(sum)[names(sum) == 'maximumDepth'] <- 'Maximum Depth'
+names(sum)[names(sum) == 'bottomTime'] <- 'Time spent > 80% Max. Depth'
+names(sum)[names(sum) == 'surface_int'] <- 'Surface Interval'
+names(sum)[names(sum) == 'diveTime'] <- 'Dive Time'
+
+my_cols <- c("#ca7dcc","#E69F00","#56B4E9", "coral")  
+pairs(sum[,1:4], pch = 19,  cex = 1,
+      col = my_cols[sum$states4],
+      lower.panel=NULL)
+
+
+
+
+#######create map of states######### 
+#Javi this is what would be good for you to focus on, david has commented the following:
+
+#' Good idea showing the same in a map. This map would need some improvements:
+#'   - Increase font size from axis labels
+#' - Land map and coastline are very coarse. Need to replace by higher resolution.
+#' - Depth contours and bathymetry seem to put some noise in terms of colors. It may need to change or even remove.
+#' - Turtle track: I would add the turtle track using a line, and then the dives on top. Also, the start and end of track can be represented with different symbol.
+#' - There is enough space on the top left side (Spain mainland) to add a world map with box of the zoomed area. So people not familiar with study location can identify easily.
+#' 
+#' @Javi, I suggest that you could help with this figure as you already have R code to do most of these suggestions.
+library(marmap)
+
+newdf<- depths_bind %>% filter(depths_bind$maximumDepth>10)
+
+
+colnames(newdf)[colnames(newdf) == "latitude"] ="Latitude"
+colnames(newdf)[colnames(newdf) == "longitude"] ="Longitude"
+
+
+#newdf2<- newdf %>% filter (Longitude>-5)
+filt_df<-newdf[newdf$organismID== "235396",]
+
+med<-getNOAA.bathy(lon1=-5,lon2=6, lat1=35,lat2= 39.2,resolution=10)
+
+autoplot.bathy(med, geom=c("r", "c"), colour="lightgrey", mapping = NULL, alpha=0.8) +
+  scale_fill_gradient2(low="darkblue", mid="lightblue", high="white", limits = c(-4000, 0), na.value = "lightgrey", name="Depth (m)")+
+  geom_point(aes(x=Longitude, y=Latitude, col=as.factor(states4)), data=filt_df)+ #in aes, shape=as.factor(class)
+  scale_color_manual(name = "State", labels = c("1", "2", "3","4"), values = c("#ca7dcc","#E69F00","#56B4E9", "coral"))+
+# scale_color_manual(name = "Dive type", labels = c("Drift", "Explore", "Bottom"), values = c("#ca7dcc","orange","#02e302"))+
+ xlab("Longitude") + 
+  ylab("Latitude")+
+  theme(strip.background=element_rect(colour="black",
+                                      fill="white"),axis.text=element_text(size=12),
+        axis.title=element_text(size=14,face="bold"),
+        strip.text.x = element_text(size=14,face="bold"))
+
+
+######################################################################################
+#validation graphs for supplimentary using oceanografics data
+
+################################################################################
+#now compare one second data and resampled 5 min data
+
+output_data <- paste0("C:/Users/xcarrj/Desktop/laptop/tort/")
+fiveMin<- read.csv(paste0(output_data, "dive_summarys_fiveMin.csv"))
+
+oneSec<-read.csv(paste0(output_data, "dive_summarys_oneSec.csv"))
+
+
+#add sample interval for combining
+oneSec$sample<-"1 sec"
+fiveMin$sample<-"300 sec"
+library(dplyr)
+
+oneSec<-oneSec %>% select (diveStartTime, bottomTime,maximumDepth, diveTime,surface_int,diveEndTime,organismID,concatID,sample)
+fiveMin<-fiveMin %>% select (diveStartTime, bottomTime,maximumDepth, diveTime,surface_int,diveEndTime,organismID,concatID,sample)
+
+#filter dives with max depth greater than 10m
+one_filt<-oneSec %>% filter (maximumDepth>10)
+five_filt<-fiveMin %>% filter (maximumDepth>10)
+
+#how manys dives for each sampling interval?
+nrow(one_filt)
+nrow(five_filt)
+
+#bind dives together
+allSamples<-rbind(oneSec,fiveMin)
+
+#frequency table
+table(allSamples$sample,allSamples$maximumDepth)
+
+#bin maximum depths 
+tot_bin<-allSamples %>% mutate(new_bin = cut(maximumDepth, breaks=c(10, 20, 30,40,50,60,70,80)))
+
+#make a frequency table of bins
+freqTab<-table(tot_bin$new_bin, tot_bin$sample)
+
+df<-as.data.frame(freqTab)
+
+ggplot(df, aes(fill=Var2, y=Freq, x=Var1)) + 
+  geom_bar(position="dodge", stat="identity")+
+  theme_classic()+
+  scale_x_discrete(name ="Maximum Depth (M)", 
+                   labels=c("(0-10]","(10-20]","(20-30]", "(30-40]", "(40-50]", "(50-60]", "(60-70]", "(70-80]"))+
+  scale_fill_discrete(name = "Sampling Interval", labels = c("1 Sec", "300 Sec"))+
+  ylab("Frequency")+
+  theme_article()+
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14,face="bold"),
+        strip.text.x = element_text(size=14,face="bold"),legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 14))
+
+
