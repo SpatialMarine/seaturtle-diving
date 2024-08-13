@@ -14,27 +14,22 @@ customDive_threshold=3.00
 # Processing TTDR data
 #---------------------------------------------------------------
 # TDR data processing
-source("R/ttdr/scr/01_01_ProcessLowResTTDR.R")  # process TDR
+source("R/ttdr/scr/01_ProcessLowResTTDR.R")  # process TDR
 
 #---------------------------------------------------------------
 # Format TTDR data, add SMM metrics
 #---------------------------------------------------------------
 #Prepare data for models, add in SSM metrics
-source("R/ttdr/scr/03_prepareTTDR.R")  
+source("R/ttdr/scr/02_prepareTTDR.R")  
 
 #---------------------------------------------------------------
 # Run HMM. THIS MAY TAKE SEVERAL DAYS
 #---------------------------------------------------------------
 #Run HMM
-source("R/ttdr/scr/04_runHMM.R")
+source("R/ttdr/scr/03_runHMM.R")
 
 #---------------------------------------------------------------
 # Visualise HMM output
 #---------------------------------------------------------------
 #Visualise HMM
-source("R/ttdr/scr/*****.R")
-
-#---------------------------------------------------------------
-# Run GAM's
-#---------------------------------------------------------------
-source("R/ttdr/scr/*****.R")
+source("R/ttdr/scr/04_visualisehmmR")
