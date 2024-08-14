@@ -1,0 +1,123 @@
+output_data <- paste0("C:/Users/xcarrj/Desktop/laptop/tort/output/")
+input_data <- paste0("C:/Users/xcarrj/Desktop/laptop/tort/input/tracking/CAR/wc/")
+metadata <- read.csv(paste0(input_data, "TODB_2023-12-09_diveAnalysis2.csv"))
+location_data <-  paste0(input_data, "/locdata/locdata/L2_loc")
+  ################################################################################
+  #------------------------------------------------------------------------------#
+  # Step 1. Derive MPM values #
+  #------------------------------------------------------------------------------#
+  ################################################################################
+for (i in 1:nrow(metadata)){
+
+  organismID <- metadata$ptt[i]
+  
+  print(organismID)
+  dive_file<-paste0(output_data,"dive_summarysSST_", organismID, ".csv")  
+  
+  ttdr<- read.csv(dive_file)
+  
+   #remove dives where surface interval has NA's 
+  
+  ttdr <- filter(ttdr, maximumDepth > 10)
+  
+  #ttdr$first48Hrs<-ttdr$first48Hrs %>% replace_na('no')
+  
+  ttdr <- filter(ttdr, first24Hrs != "flag")
+  
+  ttdr <- filter(ttdr, NaSurfaceInt == "N")
+  
+  names(ttdr)[names(ttdr) == "date"] <- "diveStartTime"
+  loc_file <- paste0(location_data, "/", organismID, "_L2_loc.csv")
+  loc_filt <- read.csv(loc_file)
+  loc_filt$time <- parse_date_time(loc_filt$time, "Ymd HMS") # parse time
+
+  ##grep to add 00's to midnight if dive starts at midnight.
+  ttdr$diveStartTime[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",ttdr$diveStartTime)] <- paste(
+    ttdr$diveStartTime[grep("[0-9]{4}-[0-9]{2}-[0-9]{2}$",ttdr$diveStartTime)],"00:00:00")
+  
+  ttdr$time <- parse_date_time(ttdr$diveStartTime, "Ymd HMS") # parse time
+  
+  ttdr = ttdr[!duplicated(ttdr$time),]
+  
+  
+  ### Interpolate -----------------------------------------
+  
+  # No extrapolation is performed. So check that time stamps in series are within time domain of loc
+  ttdr <- dplyr::filter(ttdr, time >= min(loc_filt$time) & time <= max(loc_filt$time))
+  
+  # convert location data to move class
+  loc_filt_move <- move(x=loc_filt$longitude, y=loc_filt$latitude, time=loc_filt$time, data=loc_filt,
+                        proj=CRS("+proj=longlat +ellps=WGS84"), animal=loc_filt$organismID)
+  
+  # linear interpolation
+  lint <- interpolateTime(loc_filt_move, time = ttdr$time, spaceMethod = "greatcircle")
+  
+  # incorporate coordinates to TTDR data.frame
+  ttdr$longitude <- lint@coords[,1]
+  ttdr$latitude <- lint@coords[,2]
+  
+  # Interpolate movement persistence metric to TTDR data
+  ttdr$mpm <- akima::aspline(x=(as.numeric(loc_filt$time)), y=(loc_filt$g), xout=(as.numeric(ttdr$time)))$y
+  
+  ttdr$ccl<-metadata$organismSize1[i]
+  
+  diveMetricsSSM_file <- paste0(output_data, "dive_summarysSSM_", organismID, ".csv")
+  write.csv(ttdr, diveMetricsSSM_file)
+}
+  
+#now combine into one df to append to HMM results
+
+files<-list.files(path=output_data, pattern="dive_summarysSSM_")
+tables <- lapply(paste0(output_data,files), read.csv, header = TRUE)
+combined.df <- do.call(rbind , tables)
+all_diveSummaries_file <- paste0(output_data, "allDiveSummariesSSM", ".csv")
+write.csv(combined.df, all_diveSummaries_file)
+
+  ################################################################################
+  #------------------------------------------------------------------------------#
+  # Step 2. Append MPM values to HMM results#
+  #------------------------------------------------------------------------------#
+  ################################################################################
+
+tot_data<-read.csv("C:/Users/xcarrj/Desktop/laptop/tort/dive_summariesLabStates060224_FIN1304.csv")
+
+tot_data$diveStartTime <- as.POSIXct(tot_data$diveStartTime,format="%Y-%m-%d %H:%M:%S",tz="CET")
+
+tot_divsum<-read.csv("C:/Users/xcarrj/Desktop/laptop/tort/output/allDiveSummariesSSM.csv")
+
+tot_divsum$diveStartTime <-as.POSIXct(tot_divsum$diveStartTime ,format="%Y-%m-%d %H:%M:%S ",tz="CET")
+
+colnames(tot_data)[colnames(tot_data) == "mpm"] ="oldMPM"
+colnames(tot_data)[colnames(tot_data) == "organismID.x"] ="organismID"
+colnames(tot_divsum)[colnames(tot_divsum) == "organismID.x"] ="organismID"
+
+ids<-names(table(tot_data$organismID))
+
+class(tot_divsum$diveStartTime)
+class(tot_data$diveStartTime)
+
+for(i in  1:length(ids)){
+  
+  tort<-filter(tot_data, organismID == ids[i])
+  diveSum<-filter(tot_divsum, organismID == ids[i])
+  
+  
+  tort$divetimedate<-tort$diveStartTime
+  diveSum$divetimedate<-diveSum$diveStartTime
+
+  #produces nearest times
+  library(data.table) # v1.9.6+
+  newdf<-setDT(diveSum)[tort, roll = "nearest", on = "divetimedate"]
+  fin<-as.data.frame(newdf)
+  assign(paste("diveMatch",ids[i],sep = "_"), t<-fin)
+  print(paste("diveMatch",ids[i],sep = "_"))
+  
+}
+
+depths = mget(ls(pattern = "diveMatch_"))
+depths_bind = do.call(what = rbind, args = depths)
+depths_bind<-depths_bind[order(depths_bind$diveStartTime),]
+
+data<-depths_bind[,c(4:37,70:74)]
+
+write.csv(data, "dive_summariesLabStates060224_FIN1304NEWMPM.csv")
