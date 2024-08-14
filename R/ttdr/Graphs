@@ -254,7 +254,8 @@ ggplot(freq.df2,# Draw barplot with grouping & stacking
 
 ###plot move persistance histograms#####
 
-sum<-subset(depths_bind, select = c(maximumDepth, bottomTime,diveTime, surface_int, mpm, states4))
+dive_mpm<-read.csv("dive_summariesLabStates060224_FIN1304NEWMPM.csv")
+sum<-subset(dive_mpm, select = c(maximumDepth, bottomTime,diveTime, surface_int, mpm, states4))
 sum$states4<-as.factor(sum$states4)
 
 facet_names <- list(
