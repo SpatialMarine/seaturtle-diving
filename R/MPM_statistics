@@ -1,0 +1,76 @@
+rm(list=ls())
+library(ggplot2)
+library(egg)
+library(tidyverse)
+
+#read data
+depths_bind<-read.csv("dive_summariesLabStates060224_FIN1304NEWMPM.csv")
+mpm_thresh<-read.csv("L2_loc_mpm_threshold.csv")
+
+#assign each mpm high or low depending on individual
+depths_bind$mpm_class <- NA
+# Loop through each row of df
+
+for (i in 1:nrow(depths_bind)) {
+  # organismID for the current row
+  organismIDMPM <- depths_bind$organismID[i]
+  threshold <- mpm_thresh$g_threshold[mpm_thresh$ptt == organismIDMPM]
+  # Compare mpm value with the threshold using ifelse
+  depths_bind$mpm_class[i] <- ifelse(
+    depths_bind$mpm[i] >= threshold,
+    "≥g_threshold", "<g_threshold"
+  )
+}
+
+
+depths_bind$mpm_class <- as.factor(depths_bind$mpm_class)
+
+#visualise proportions
+table(depths_bind$states4, depths_bind$mpm_class)
+newdf<-as.data.frame.matrix(table(depths_bind$states4, depths_bind$mpm_class))
+newdf$tot<-rowSums(newdf)
+newdf$high_prop<-newdf$'≥g_threshold'/newdf$tot
+newdf$low_prop<-newdf$'<g_threshold'/newdf$tot
+newdf$states<-c(1,2,3,4)
+
+#y will be interpreted in the model as the proportion of all mpms that were high
+y<-cbind(newdf$'≥g_threshold',newdf$'<g_threshold')
+
+model <- glm(y ~ as.factor(states), binomial, data=newdf)
+summary(model)
+
+#posthoc difference in proportion between sig. groups
+emmeans(model, list(pairwise ~ states), adjust="tukey")
+
+
+#plot as graph
+
+ggplot(depths_bind, aes(as.factor(states4))) +
+  geom_bar(aes(fill = mpm_class))+
+  scale_fill_discrete(name = "MP Class", labels=c("< G Threshold", "\u2265 G Threshold"), type=c("#5D336D","#ffb000"))+
+  scale_x_discrete(labels=c("1" = "State 1", "2" = "State 2",
+                            "3" = "State 3", "4" = "State 4"))+
+  theme_classic()+
+  xlab(NULL) +
+  ylab("Count")+
+  theme_article()+
+  theme_bw() +
+  theme(axis.text.y = element_text(size = 10),
+        axis.text.x = element_text(size = 10),
+        axis.ticks = element_line(size = 0.75),
+        axis.ticks.length = unit(7, "pt"),
+        axis.title.y = element_text(margin = margin(r = 8), size = 11, face = "bold"),
+        axis.title.x = element_text(margin = margin(t = 8), size = 11, face = "bold"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1.2),
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        strip.text.x = element_text(size = 12, face="bold"),
+        strip.background = element_blank())
+
+
+theme(axis.text=element_text(size=14, face= "bold"),
+      axis.title=element_text(size=16,face="bold"),
+      strip.text.x = element_text(size=16,face="bold"),
+      legend.text = element_text(size=14), legend.title = element_text(size=14, face="bold"))
+
+
